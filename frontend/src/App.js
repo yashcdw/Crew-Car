@@ -527,10 +527,6 @@ function App() {
   );
 
   const renderMyTrips = () => {
-    useEffect(() => {
-      fetchUserTrips();
-    }, []);
-
     return (
       <div className="min-h-screen bg-gray-50">
         <nav className="bg-red-600 text-white p-4">
