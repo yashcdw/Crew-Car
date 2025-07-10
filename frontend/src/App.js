@@ -616,6 +616,9 @@ function App() {
     if (currentView === 'dashboard') {
       fetchTrips();
     }
+    if (currentView === 'my-trips') {
+      fetchUserTrips();
+    }
   }, [currentView]);
 
   if (currentView === 'login') return renderLogin();
