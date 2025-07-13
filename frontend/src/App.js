@@ -275,12 +275,27 @@ function App() {
     }
   };
 
-  const fetchWalletTransactions = async () => {
+  const fetchAirportTrips = async () => {
     try {
-      const data = await apiCall('/api/wallet/transactions');
-      setWalletTransactions(data.transactions || []);
+      setLoading(true);
+      const data = await apiCall('/api/trips/airport');
+      setAirportTrips(data.trips || []);
     } catch (error) {
-      console.error('Failed to fetch wallet transactions:', error);
+      console.error('Failed to fetch airport trips:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUserProfile = async (profileData) => {
+    try {
+      await apiCall('/api/user/profile', {
+        method: 'PUT',
+        body: JSON.stringify(profileData)
+      });
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      throw error;
     }
   };
 
