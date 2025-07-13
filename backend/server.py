@@ -173,9 +173,6 @@ class User(BaseModel):
     employee_id: str
     department: str
     home_address: Optional[Location] = None
-    address: str
-    coordinates: Dict[str, float]  # {lat: float, lng: float}
-    place_id: Optional[str] = None
 
 class BusStop(BaseModel):
     id: str
