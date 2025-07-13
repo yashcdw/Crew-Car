@@ -1,16 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  GoogleMap,
-  useJsApiLoader,
-  Marker,
-  DirectionsRenderer,
-  Autocomplete
-} from '@react-google-maps/api';
-import io from 'socket.io-client';
+import React, { useState, useEffect } from 'react';
+import { GoogleMap, LoadScript, Marker, DirectionsRenderer, InfoWindow } from '@react-google-maps/api';
 import './App.css';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 const libraries = ['places'];
 
