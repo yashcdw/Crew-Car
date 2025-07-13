@@ -246,9 +246,9 @@ class WalletFunctionalityTest(unittest.TestCase):
         else:
             print(f"⚠️  Wallet top-up returned status {response.status_code}: {response.text}")
 
-    def test_09_invalid_package_topup(self):
+    def test_10_invalid_package_topup(self):
         """Test wallet top-up with invalid package"""
-        print("\n9. Testing wallet top-up with invalid package...")
+        print("\n10. Testing wallet top-up with invalid package...")
         
         topup_data = {
             "package_id": "invalid_package",
