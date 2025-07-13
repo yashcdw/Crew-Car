@@ -134,14 +134,14 @@ class WalletFunctionalityTest(unittest.TestCase):
     def test_04_create_trip_for_booking_test(self):
         """Create a trip for wallet payment testing"""
         print("\n4. Creating a trip for wallet payment testing...")
-        response = self.api_call("/api/trips", method="POST", data=self.test_trip, token=self.token)
+        response = self.api_call("/api/trips", method="POST", data=self.test_trip, token=WalletFunctionalityTest.token)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["message"], "Trip created successfully")
         self.assertIn("trip_id", data)
         
-        self.trip_id = data["trip_id"]
-        print(f"✅ Trip created successfully - Trip ID: {self.trip_id}")
+        WalletFunctionalityTest.trip_id = data["trip_id"]
+        print(f"✅ Trip created successfully - Trip ID: {WalletFunctionalityTest.trip_id}")
 
     def test_05_book_trip_with_insufficient_wallet_balance(self):
         """Test booking trip with wallet payment (should fail due to insufficient balance)"""
