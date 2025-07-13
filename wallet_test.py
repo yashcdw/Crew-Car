@@ -190,7 +190,7 @@ class WalletFunctionalityTest(unittest.TestCase):
 
     def test_07_get_wallet_transactions_empty(self):
         """Test wallet transaction history (should be empty initially)"""
-        print("\n6. Testing wallet transaction history (empty)...")
+        print("\n7. Testing wallet transaction history (empty)...")
         response = self.api_call("/api/wallet/transactions", token=WalletFunctionalityTest.token)
         self.assertEqual(response.status_code, 200)
         data = response.json()
