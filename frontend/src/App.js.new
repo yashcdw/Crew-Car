@@ -1,0 +1,446 @@
+import React, { useState, useEffect } from 'react';
+import { GoogleMap, LoadScript, Marker, DirectionsRenderer, InfoWindow } from '@react-google-maps/api';
+import './App.css';
+
+const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
+// Location autocomplete component
+const LocationAutocomplete = ({ onPlaceSelect, placeholder, value }) => {
+  const [inputValue, setInputValue] = useState(value || '');
+  const [predictions, setPredictions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    if (inputValue && inputValue.length > 2) {
+      const service = new window.google.maps.places.AutocompleteService();
+      service.getPlacePredictions(
+        { input: inputValue, componentRestrictions: { country: 'tr' } },
+        (predictions, status) => {
+          if (status === window.google.maps.places.PlacesServiceStatus.OK) {
+            setPredictions(predictions || []);
+            setShowSuggestions(true);
+          } else {
+            setPredictions([]);
+            setShowSuggestions(false);
+          }
+        }
+      );
+    } else {
+      setPredictions([]);
+      setShowSuggestions(false);
+    }
+  }, [inputValue]);
+
+  const handlePlaceSelect = (prediction) => {
+    const service = new window.google.maps.places.PlacesService(
+      document.createElement('div')
+    );
+
+    service.getDetails({ placeId: prediction.place_id }, (place, status) => {
+      if (status === window.google.maps.places.PlacesServiceStatus.OK) {
+        const location = {
+          address: place.formatted_address,
+          coordinates: {
+            lat: place.geometry.location.lat(),
+            lng: place.geometry.location.lng()
+          },
+          place_id: place.place_id
+        };
+        onPlaceSelect(location);
+        setInputValue(place.formatted_address);
+        setShowSuggestions(false);
+      }
+    });
+  };
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+      />
+      {showSuggestions && predictions.length > 0 && (
+        <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+          {predictions.map((prediction) => (
+            <div
+              key={prediction.place_id}
+              className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+              onClick={() => handlePlaceSelect(prediction)}
+            >
+              {prediction.description}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Trip Map Component
+const TripMap = ({ trips, selectedTrip, onTripSelect, userLocation }) => {
+  const [directions, setDirections] = useState(null);
+  const [map, setMap] = useState(null);
+
+  const mapContainerStyle = {
+    width: '100%',
+    height: '400px'
+  };
+
+  const center = userLocation || { lat: 41.0082, lng: 28.9784 }; // Default to Istanbul
+
+  useEffect(() => {
+    if (selectedTrip && selectedTrip.origin && selectedTrip.destination) {
+      const directionsService = new window.google.maps.DirectionsService();
+      
+      directionsService.route({
+        origin: selectedTrip.origin.coordinates,
+        destination: selectedTrip.destination.coordinates,
+        travelMode: window.google.maps.TravelMode.DRIVING
+      }, (result, status) => {
+        if (status === window.google.maps.DirectionsStatus.OK) {
+          setDirections(result);
+        }
+      });
+    }
+  }, [selectedTrip]);
+
+  const onLoad = (map) => {
+    setMap(map);
+  };
+
+  return (
+    <div className="h-96">
+      <GoogleMap
+        mapContainerStyle={mapContainerStyle}
+        center={center}
+        zoom={10}
+        onLoad={onLoad}
+      >
+        {directions && <DirectionsRenderer directions={directions} />}
+        
+        {trips.map((trip) => (
+          <Marker
+            key={trip.id}
+            position={trip.origin.coordinates}
+            onClick={() => onTripSelect(trip)}
+            icon={{
+              url: selectedTrip?.id === trip.id ? 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+              scaledSize: new window.google.maps.Size(40, 40)
+            }}
+          />
+        ))}
+        
+        {userLocation && (
+          <Marker
+            position={userLocation}
+            icon={{
+              url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+              scaledSize: new window.google.maps.Size(40, 40)
+            }}
+          />
+        )}
+      </GoogleMap>
+    </div>
+  );
+};
+
+function App() {
+  const [currentView, setCurrentView] = useState('login');
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [trips, setTrips] = useState([]);
+  const [userTrips, setUserTrips] = useState({ created_trips: [], booked_trips: [] });
+  const [selectedTrip, setSelectedTrip] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const [tripType, setTripType] = useState('taxi');
+
+  // Form states
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [registerForm, setRegisterForm] = useState({
+    name: '', email: '', phone: '', employee_id: '', department: '', password: ''
+  });
+  const [tripForm, setTripForm] = useState({
+    origin: null, destination: null, departure_time: '', available_seats: 3, price_per_person: '', notes: ''
+  });
+  const [personalCarForm, setPersonalCarForm] = useState({
+    origin: null, destination: null, departure_time: '', available_seats: 3, 
+    price_per_person: '', notes: '', car_model: '', car_color: '', license_plate: ''
+  });
+  const [bookingForm, setBookingForm] = useState({
+    pickup_location: null, pickup_bus_stop_id: '', home_address: null
+  });
+
+  // Check for token on app load
+  useEffect(() => {
+    const savedToken = localStorage.getItem('token');
+    if (savedToken) {
+      setToken(savedToken);
+      // Verify token by trying to get user profile
+      fetchUserProfile(savedToken);
+    }
+  }, []);
+
+  // Get user location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => console.log('Error getting location:', error)
+      );
+    }
+  }, []);
+
+  const apiCall = async (endpoint, options = {}) => {
+    const url = `${BACKEND_URL}${endpoint}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` })
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers: { ...headers, ...options.headers }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  };
+
+  const fetchUserProfile = async (authToken = token) => {
+    try {
+      const data = await apiCall('/api/user/profile', {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      setUser(data);
+      setCurrentView('home');
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+      logout();
+    }
+  };
+
+  const fetchTrips = async () => {
+    try {
+      setLoading(true);
+      const data = await apiCall(`/api/trips?trip_type=${tripType}`);
+      setTrips(data.trips || []);
+    } catch (error) {
+      console.error('Failed to fetch trips:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserTrips = async () => {
+    try {
+      const data = await apiCall('/api/user/trips');
+      setUserTrips(data);
+    } catch (error) {
+      console.error('Failed to fetch user trips:', error);
+    }
+  };
+
+  // Load trips when view changes to dashboard
+  useEffect(() => {
+    if (currentView === 'dashboard' && token) {
+      fetchTrips();
+    }
+  }, [currentView, token, tripType]);
+
+  // Load user trips when view changes to my-trips
+  useEffect(() => {
+    if (currentView === 'my-trips' && token) {
+      fetchUserTrips();
+    }
+  }, [currentView, token]);
+
+  const login = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const data = await apiCall('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(loginForm)
+      });
+      setToken(data.token);
+      setUser(data.user);
+      localStorage.setItem('token', data.token);
+      setCurrentView('dashboard');
+    } catch (error) {
+      alert('Login failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const data = await apiCall('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(registerForm)
+      });
+      setToken(data.token);
+      setUser(data.user);
+      localStorage.setItem('token', data.token);
+      setCurrentView('dashboard');
+    } catch (error) {
+      alert('Registration failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('token');
+    setCurrentView('login');
+  };
+
+  const createTrip = async (e) => {
+    e.preventDefault();
+    
+    let endpoint, formData;
+    if (tripType === 'taxi') {
+      if (!tripForm.origin || !tripForm.destination) {
+        alert('Please select both origin and destination locations');
+        return;
+      }
+      endpoint = '/api/trips/taxi';
+      formData = {
+        origin: tripForm.origin,
+        destination: tripForm.destination,
+        departure_time: new Date(tripForm.departure_time).toISOString(),
+        available_seats: parseInt(tripForm.available_seats),
+        price_per_person: parseFloat(tripForm.price_per_person),
+        notes: tripForm.notes
+      };
+    } else {
+      if (!personalCarForm.origin || !personalCarForm.destination) {
+        alert('Please select both origin and destination locations');
+        return;
+      }
+      endpoint = '/api/trips/personal-car';
+      formData = {
+        origin: personalCarForm.origin,
+        destination: personalCarForm.destination,
+        departure_time: new Date(personalCarForm.departure_time).toISOString(),
+        available_seats: parseInt(personalCarForm.available_seats),
+        price_per_person: parseFloat(personalCarForm.price_per_person),
+        notes: personalCarForm.notes,
+        car_model: personalCarForm.car_model,
+        car_color: personalCarForm.car_color,
+        license_plate: personalCarForm.license_plate
+      };
+    }
+
+    try {
+      setLoading(true);
+      await apiCall(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(formData)
+      });
+      alert('Trip created successfully!');
+      
+      // Reset forms
+      if (tripType === 'taxi') {
+        setTripForm({ origin: null, destination: null, departure_time: '', available_seats: 3, price_per_person: '', notes: '' });
+      } else {
+        setPersonalCarForm({ 
+          origin: null, destination: null, departure_time: '', available_seats: 3, 
+          price_per_person: '', notes: '', car_model: '', car_color: '', license_plate: '' 
+        });
+      }
+      
+      setCurrentView('dashboard');
+    } catch (error) {
+      alert('Error creating trip: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const bookTrip = async (tripId, useHomeAddress = false) => {
+    try {
+      setLoading(true);
+      const trip = trips.find(t => t.id === tripId);
+      
+      if (trip?.trip_type === 'personal_car') {
+        // For personal car trips, create a join request
+        await apiCall(`/api/trips/${tripId}/join-request`, {
+          method: 'POST',
+          body: JSON.stringify({
+            message: 'I would like to join this trip'
+          })
+        });
+        alert('Join request sent successfully!');
+      } else {
+        // For taxi trips, book directly
+        const bookingData = { trip_id: tripId };
+        
+        if (useHomeAddress && bookingForm.home_address) {
+          bookingData.home_address = bookingForm.home_address;
+        } else if (bookingForm.pickup_location) {
+          bookingData.pickup_location = bookingForm.pickup_location;
+        }
+        
+        await apiCall(`/api/trips/${tripId}/book`, {
+          method: 'POST',
+          body: JSON.stringify(bookingData)
+        });
+        alert('Trip booked successfully!');
+      }
+      fetchTrips();
+    } catch (error) {
+      alert('Error: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelTrip = async (tripId) => {
+    if (window.confirm('Are you sure you want to cancel this trip?')) {
+      try {
+        setLoading(true);
+        await apiCall(`/api/trips/${tripId}`, { method: 'DELETE' });
+        alert('Trip cancelled successfully!');
+        fetchUserTrips();
+      } catch (error) {
+        alert('Error cancelling trip: ' + error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const formatDateTime = (dateString) => {
+    return new Date(dateString).toLocaleString('tr-TR');
+  };
+
+  const formatDistance = (km) => {
+    if (km < 1) return `${Math.round(km * 1000)}m`;
+    return `${km.toFixed(1)}km`;
+  };
+
+  const formatDuration = (minutes) => {
+    if (minutes < 60) return `${Math.round(minutes)}min`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = Math.round(minutes % 60);
+    return `${hours}h ${remainingMinutes}min`;
+  };
