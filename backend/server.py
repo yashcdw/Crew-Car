@@ -712,6 +712,7 @@ async def register(user_data: UserCreate):
         "employee_id": user_data.employee_id,
         "department": user_data.department,
         "password": hash_password(user_data.password),
+        "home_address": user_data.home_address.dict() if user_data.home_address else None,
         "created_at": datetime.utcnow()
     }
     
@@ -731,7 +732,8 @@ async def register(user_data: UserCreate):
             email=user_data.email,
             phone=user_data.phone,
             employee_id=user_data.employee_id,
-            department=user_data.department
+            department=user_data.department,
+            home_address=user_data.home_address
         ),
         "token": token
     }
