@@ -61,17 +61,18 @@ const LocationAutocomplete = ({ onPlaceSelect, placeholder, value }) => {
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
       />
       {showSuggestions && predictions.length > 0 && (
-        <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+        <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-xl shadow-lg max-h-40 overflow-y-auto mt-1">
           {predictions.map((prediction) => (
             <div
               key={prediction.place_id}
-              className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+              className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
               onClick={() => handlePlaceSelect(prediction)}
             >
-              {prediction.description}
+              <div className="text-sm font-medium text-gray-900">{prediction.structured_formatting.main_text}</div>
+              <div className="text-xs text-gray-500">{prediction.structured_formatting.secondary_text}</div>
             </div>
           ))}
         </div>
@@ -83,14 +84,14 @@ const LocationAutocomplete = ({ onPlaceSelect, placeholder, value }) => {
 // Trip Map Component
 const TripMap = ({ trips, selectedTrip, onTripSelect, userLocation }) => {
   const [directions, setDirections] = useState(null);
-  const [map, setMap] = useState(null);
 
   const mapContainerStyle = {
     width: '100%',
-    height: '400px'
+    height: '250px',
+    borderRadius: '12px'
   };
 
-  const center = userLocation || { lat: 41.0082, lng: 28.9784 }; // Default to Istanbul
+  const center = userLocation || { lat: 41.0082, lng: 28.9784 };
 
   useEffect(() => {
     if (selectedTrip && selectedTrip.origin && selectedTrip.destination) {
@@ -108,43 +109,36 @@ const TripMap = ({ trips, selectedTrip, onTripSelect, userLocation }) => {
     }
   }, [selectedTrip]);
 
-  const onLoad = (map) => {
-    setMap(map);
-  };
-
   return (
-    <div className="h-96">
-      <GoogleMap
-        mapContainerStyle={mapContainerStyle}
-        center={center}
-        zoom={10}
-        onLoad={onLoad}
-      >
-        {directions && <DirectionsRenderer directions={directions} />}
-        
-        {trips.map((trip) => (
-          <Marker
-            key={trip.id}
-            position={trip.origin.coordinates}
-            onClick={() => onTripSelect(trip)}
-            icon={{
-              url: selectedTrip?.id === trip.id ? 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-              scaledSize: new window.google.maps.Size(40, 40)
-            }}
-          />
-        ))}
-        
-        {userLocation && (
-          <Marker
-            position={userLocation}
-            icon={{
-              url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
-              scaledSize: new window.google.maps.Size(40, 40)
-            }}
-          />
-        )}
-      </GoogleMap>
-    </div>
+    <GoogleMap
+      mapContainerStyle={mapContainerStyle}
+      center={center}
+      zoom={10}
+    >
+      {directions && <DirectionsRenderer directions={directions} />}
+      
+      {trips.map((trip) => (
+        <Marker
+          key={trip.id}
+          position={trip.origin.coordinates}
+          onClick={() => onTripSelect(trip)}
+          icon={{
+            url: selectedTrip?.id === trip.id ? 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+            scaledSize: new window.google.maps.Size(30, 30)
+          }}
+        />
+      ))}
+      
+      {userLocation && (
+        <Marker
+          position={userLocation}
+          icon={{
+            url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+            scaledSize: new window.google.maps.Size(30, 30)
+          }}
+        />
+      )}
+    </GoogleMap>
   );
 };
 
@@ -230,7 +224,7 @@ function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       setUser(data);
-      setTripType('taxi'); // Default to taxi sharing
+      setTripType('taxi');
       setCurrentView('dashboard');
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
@@ -308,12 +302,6 @@ function App() {
     }
   }, [currentView, token]);
 
-  useEffect(() => {
-    if (currentView === 'home' && token) {
-      fetchWallet();
-    }
-  }, [currentView, token]);
-
   const login = async (e) => {
     e.preventDefault();
     try {
@@ -325,7 +313,7 @@ function App() {
       setToken(data.token);
       setUser(data.user);
       localStorage.setItem('token', data.token);
-      setTripType('taxi'); // Default to taxi sharing
+      setTripType('taxi');
       setCurrentView('dashboard');
     } catch (error) {
       alert('Login failed: ' + error.message);
@@ -345,7 +333,7 @@ function App() {
       setToken(data.token);
       setUser(data.user);
       localStorage.setItem('token', data.token);
-      setTripType('taxi'); // Default to taxi sharing
+      setTripType('taxi');
       setCurrentView('dashboard');
     } catch (error) {
       alert('Registration failed: ' + error.message);
@@ -372,7 +360,6 @@ function App() {
         })
       });
       
-      // Redirect to Stripe checkout
       window.location.href = data.url;
     } catch (error) {
       alert('Top-up failed: ' + error.message);
@@ -467,7 +454,6 @@ function App() {
       });
       alert('Trip created successfully!');
       
-      // Reset forms
       if (tripType === 'taxi') {
         setTripForm({ origin: null, destination: null, departure_time: '', available_seats: 3, price_per_person: '', notes: '' });
       } else {
@@ -493,10 +479,9 @@ function App() {
       return;
     }
 
-    // Show payment method selection for taxi trips
     if (trip.trip_type !== 'personal_car') {
       const paymentMethod = await showPaymentMethodModal(trip);
-      if (!paymentMethod) return; // User cancelled
+      if (!paymentMethod) return;
       
       try {
         setLoading(true);
@@ -518,7 +503,7 @@ function App() {
         alert('Trip booked successfully!');
         fetchTrips();
         if (paymentMethod === 'wallet') {
-          fetchWallet(); // Update wallet balance only if wallet was used
+          fetchWallet();
         }
       } catch (error) {
         alert('Error: ' + error.message);
@@ -526,7 +511,6 @@ function App() {
         setLoading(false);
       }
     } else {
-      // Personal car trips - create join request
       try {
         setLoading(true);
         await apiCall(`/api/trips/${tripId}/join-request`, {
@@ -548,41 +532,37 @@ function App() {
   const showPaymentMethodModal = (trip) => {
     return new Promise((resolve) => {
       const modal = document.createElement('div');
-      modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+      modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
       
       modal.innerHTML = `
-        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-          <h3 class="text-xl font-bold mb-4">Choose Payment Method</h3>
-          <p class="text-gray-600 mb-4">Trip cost: ${formatCurrency(trip.price_per_person)}</p>
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full">
+          <h3 class="text-xl font-bold mb-4 text-center">Choose Payment Method</h3>
+          <p class="text-gray-600 mb-6 text-center">Trip cost: ${formatCurrency(trip.price_per_person)}</p>
           <div class="space-y-3">
-            <button id="wallet-btn" class="w-full p-3 border-2 border-green-500 text-green-700 rounded-lg hover:bg-green-50 flex items-center justify-between">
-              <span>💰 Wallet Payment</span>
-              <span class="text-sm">${formatCurrency(wallet.balance)} available</span>
+            <button id="wallet-btn" class="w-full p-4 border-2 border-green-500 text-green-700 rounded-xl hover:bg-green-50 flex items-center justify-between">
+              <span class="flex items-center space-x-2">
+                <span>💰</span>
+                <span>Wallet Payment</span>
+              </span>
+              <span class="text-sm">${formatCurrency(wallet.balance)}</span>
             </button>
-            <button id="cash-btn" class="w-full p-3 border-2 border-blue-500 text-blue-700 rounded-lg hover:bg-blue-50">
-              💵 Cash Payment (Pay driver directly)
+            <button id="cash-btn" class="w-full p-4 border-2 border-blue-500 text-blue-700 rounded-xl hover:bg-blue-50 text-center">
+              💵 Cash Payment (Pay driver)
             </button>
-            <button id="card-btn" class="w-full p-3 border-2 border-purple-500 text-purple-700 rounded-lg hover:bg-purple-50">
-              💳 Card Payment (Use taxi terminal)
+            <button id="card-btn" class="w-full p-4 border-2 border-purple-500 text-purple-700 rounded-xl hover:bg-purple-50 text-center">
+              💳 Card Payment (Taxi terminal)
             </button>
           </div>
-          <div class="mt-4 pt-4 border-t">
-            <button id="cancel-btn" class="w-full p-2 text-gray-600 hover:text-gray-800">Cancel</button>
-          </div>
+          <button id="cancel-btn" class="w-full mt-4 p-3 text-gray-600 hover:text-gray-800">Cancel</button>
         </div>
       `;
       
       document.body.appendChild(modal);
       
-      // Disable wallet button if insufficient balance
       const walletBtn = modal.querySelector('#wallet-btn');
       if (wallet.balance < trip.price_per_person) {
         walletBtn.disabled = true;
         walletBtn.className = walletBtn.className.replace('border-green-500 text-green-700 hover:bg-green-50', 'border-gray-300 text-gray-400 cursor-not-allowed');
-        walletBtn.innerHTML = `
-          <span>💰 Wallet Payment (Insufficient Balance)</span>
-          <span class="text-sm">${formatCurrency(wallet.balance)} available</span>
-        `;
       }
       
       modal.querySelector('#wallet-btn').onclick = () => {
@@ -606,13 +586,6 @@ function App() {
         document.body.removeChild(modal);
         resolve(null);
       };
-      
-      modal.onclick = (e) => {
-        if (e.target === modal) {
-          document.body.removeChild(modal);
-          resolve(null);
-        }
-      };
     });
   };
 
@@ -632,7 +605,12 @@ function App() {
   };
 
   const formatDateTime = (dateString) => {
-    return new Date(dateString).toLocaleString('tr-TR');
+    return new Date(dateString).toLocaleString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const formatDistance = (km) => {
@@ -651,33 +629,37 @@ function App() {
     return `₺${parseFloat(amount).toFixed(2)}`;
   };
 
+  // Mobile Login Component
   const renderLogin = () => (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-700 to-red-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-700 mb-2">Turkish Airlines</h1>
-          <p className="text-gray-600">Smart Car Pooling for Personnel</p>
+          <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-xl">TK</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Turkish Airlines</h1>
+          <p className="text-gray-600">Car Pooling App</p>
         </div>
         
         <form onSubmit={login} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
               type="email"
               value={loginForm.email}
               onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Email"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
               required
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               type="password"
               value={loginForm.password}
               onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Password"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
               required
             />
           </div>
@@ -685,13 +667,13 @@ function App() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
+            className="w-full bg-red-600 text-white py-3 px-4 rounded-xl hover:bg-red-700 disabled:opacity-50 font-medium text-base"
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
         
-        <p className="text-center mt-4 text-sm text-gray-600">
+        <p className="text-center mt-6 text-sm text-gray-600">
           Don't have an account?{' '}
           <button
             onClick={() => setCurrentView('register')}
@@ -704,564 +686,560 @@ function App() {
     </div>
   );
 
+  // Mobile Register Component
   const renderRegister = () => (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-700 to-red-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-700 mb-2">Register</h1>
-          <p className="text-gray-600">Turkish Airlines Personnel</p>
+          <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-xl">TK</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Join Turkish Airlines</h1>
+          <p className="text-gray-600">Car Pooling Community</p>
         </div>
         
         <form onSubmit={register} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-            <input
-              type="text"
-              value={registerForm.name}
-              onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
+          <input
+            type="text"
+            value={registerForm.name}
+            onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
+            placeholder="Full Name"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
+            required
+          />
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={registerForm.email}
-              onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
+          <input
+            type="email"
+            value={registerForm.email}
+            onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+            placeholder="Email"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
+            required
+          />
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-            <input
-              type="tel"
-              value={registerForm.phone}
-              onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
+          <input
+            type="tel"
+            value={registerForm.phone}
+            onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
+            placeholder="Phone"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
+            required
+          />
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
-            <input
-              type="text"
-              value={registerForm.employee_id}
-              onChange={(e) => setRegisterForm({ ...registerForm, employee_id: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
+          <input
+            type="text"
+            value={registerForm.employee_id}
+            onChange={(e) => setRegisterForm({ ...registerForm, employee_id: e.target.value })}
+            placeholder="Employee ID"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
+            required
+          />
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-            <input
-              type="text"
-              value={registerForm.department}
-              onChange={(e) => setRegisterForm({ ...registerForm, department: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
+          <input
+            type="text"
+            value={registerForm.department}
+            onChange={(e) => setRegisterForm({ ...registerForm, department: e.target.value })}
+            placeholder="Department"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
+            required
+          />
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              value={registerForm.password}
-              onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
+          <input
+            type="password"
+            value={registerForm.password}
+            onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+            placeholder="Password"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
+            required
+          />
           
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
+            className="w-full bg-red-600 text-white py-3 px-4 rounded-xl hover:bg-red-700 disabled:opacity-50 font-medium text-base"
           >
-            {loading ? 'Registering...' : 'Register'}
+            {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
         
-        <p className="text-center mt-4 text-sm text-gray-600">
+        <p className="text-center mt-6 text-sm text-gray-600">
           Already have an account?{' '}
           <button
             onClick={() => setCurrentView('login')}
             className="text-red-600 hover:text-red-800 font-medium"
           >
-            Login
+            Sign In
           </button>
         </p>
       </div>
     </div>
   );
 
-  const renderHome = () => (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-700 to-red-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-700 mb-2">Turkish Airlines</h1>
-          <p className="text-gray-600">Choose Your Transportation</p>
-          <p className="text-sm text-gray-500 mt-2">Welcome, {user?.name}</p>
-          <p className="text-sm text-green-600 mt-1">Wallet: {formatCurrency(wallet.balance)}</p>
-        </div>
-        
-        <div className="space-y-4">
-          <button
-            onClick={() => {
-              setTripType('taxi');
-              setCurrentView('dashboard');
-            }}
-            className="w-full bg-red-600 text-white py-4 px-6 rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center justify-center space-x-3"
-          >
-            <span className="text-2xl">🚕</span>
-            <div className="text-left">
-              <div className="font-semibold">Taxi Sharing</div>
-              <div className="text-sm opacity-90">Share professional taxi rides</div>
-              <div className="text-xs opacity-75">Home pickup available</div>
-            </div>
-          </button>
-          
-          <button
-            onClick={() => {
-              setTripType('personal_car');
-              setCurrentView('dashboard');
-            }}
-            className="w-full bg-green-600 text-white py-4 px-6 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center justify-center space-x-3"
-          >
-            <span className="text-2xl">🚗</span>
-            <div className="text-left">
-              <div className="font-semibold">Personnel Car</div>
-              <div className="text-sm opacity-90">Share rides in personal vehicles</div>
-              <div className="text-xs opacity-75">Bus stop pickup points</div>
-            </div>
-          </button>
-        </div>
-        
-        <div className="mt-6 pt-4 border-t border-gray-200">
-          <button
-            onClick={() => setCurrentView('wallet')}
-            className="w-full text-green-600 hover:text-green-800 font-medium py-2 mb-2"
-          >
-            💰 Manage Wallet ({formatCurrency(wallet.balance)})
-          </button>
-          <button
-            onClick={() => setCurrentView('my-trips')}
-            className="w-full text-red-600 hover:text-red-800 font-medium py-2"
-          >
-            View My Trips
-          </button>
-          <button
-            onClick={logout}
-            className="w-full text-gray-600 hover:text-gray-800 py-2 mt-2"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderWallet = () => (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-red-600">My Wallet</h1>
-            <div className="flex items-center space-x-4">
-              <span className="text-lg font-semibold text-gray-900">{formatCurrency(wallet.balance)}</span>
-              <button
-                onClick={() => setCurrentView('dashboard')}
-                className="text-gray-600 hover:text-gray-900 px-4 py-2 text-sm font-medium"
-              >
-                Back to Dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-      
-      <div className="container mx-auto px-6 py-8">
-        <div className="grid gap-8 md:grid-cols-2">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900">Wallet Balance</h3>
-            </div>
-            <div className="p-6">
-              <div className="text-center mb-8">
-                <div className="text-4xl font-bold text-green-600 mb-2">
-                  {formatCurrency(wallet.balance)}
-                </div>
-                <p className="text-gray-600">Available Balance</p>
-              </div>
-              
-              <h4 className="text-base font-medium mb-4 text-gray-900">Top-up Packages</h4>
-              <div className="grid grid-cols-2 gap-3">
-                {Object.entries(walletPackages).map(([packageId, packageData]) => (
-                  <button
-                    key={packageId}
-                    onClick={() => topUpWallet(packageId)}
-                    disabled={loading}
-                    className="bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white py-3 px-4 rounded-lg disabled:opacity-50 transition-colors"
-                  >
-                    <div className="text-sm">{packageData.name}</div>
-                    <div className="font-bold">{formatCurrency(packageData.amount)}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900">Transaction History</h3>
-            </div>
-            <div className="p-6">
-              {walletTransactions.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No transactions yet.</p>
-              ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {walletTransactions.map((transaction) => (
-                    <div key={transaction.id} className="border border-gray-200 rounded-lg p-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium text-sm text-gray-900">
-                            {transaction.transaction_type === 'topup' ? 'Top-up' : 
-                             transaction.transaction_type === 'payment' ? 'Payment' : 'Refund'}
-                          </p>
-                          <p className="text-gray-600 text-xs">{transaction.description}</p>
-                          <p className="text-gray-500 text-xs">{formatDateTime(transaction.created_at)}</p>
-                        </div>
-                        <div className="text-right">
-                          <div className={`font-bold ${transaction.transaction_type === 'topup' ? 'text-green-600' : 'text-red-600'}`}>
-                            {transaction.transaction_type === 'topup' ? '+' : '-'}{formatCurrency(transaction.amount)}
-                          </div>
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            transaction.status === 'completed' ? 'bg-green-50 text-green-700' : 
-                            transaction.status === 'pending' ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
-                          }`}>
-                            {transaction.status}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
+  // Mobile Dashboard Component
   const renderDashboard = () => (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
-            {/* Left side - Logo and Navigation */}
-            <div className="flex items-center space-x-8">
-              <h1 className="text-2xl font-bold text-red-600">Turkish Airlines</h1>
-              
-              {/* Trip Type Toggle */}
-              <div className="flex bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setTripType('taxi')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    tripType === 'taxi' 
-                      ? 'bg-white text-gray-900 shadow-sm' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Taxi Sharing
-                </button>
-                <button
-                  onClick={() => setTripType('personal_car')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    tripType === 'personal_car' 
-                      ? 'bg-white text-gray-900 shadow-sm' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Personnel Car
-                </button>
+    <div className="min-h-screen bg-gray-100">
+      {/* Mobile Header */}
+      <div className="bg-white shadow-sm sticky top-0 z-40">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center">
+                <span className="text-white font-bold">TK</span>
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">Turkish Airlines</h1>
+                <p className="text-xs text-gray-500">Car Pooling</p>
               </div>
             </div>
-            
-            {/* Right side - User info and actions */}
-            <div className="flex items-center space-x-6">
-              {/* User Info */}
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                  <p className="text-xs text-gray-500">{user?.department}</p>
-                </div>
-                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                  <span className="text-red-600 font-medium text-sm">
-                    {user?.name?.charAt(0)?.toUpperCase()}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Wallet */}
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setCurrentView('wallet')}
-                  className="flex items-center space-x-2 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  <span className="text-sm font-medium text-gray-700">{formatCurrency(wallet.balance)}</span>
-                </button>
-              </div>
-              
-              {/* Action Menu */}
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setCurrentView('create-trip')}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Create Trip
-                </button>
-                <button
-                  onClick={() => setCurrentView('my-trips')}
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
-                >
-                  My Trips
-                </button>
-                <button
-                  onClick={logout}
-                  className="text-gray-400 hover:text-gray-600 px-3 py-2 text-sm"
-                >
-                  Logout
-                </button>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setCurrentView('wallet')}
+                className="flex items-center space-x-1 bg-green-50 px-3 py-2 rounded-lg"
+              >
+                <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1z"/>
+                </svg>
+                <span className="text-sm font-medium text-green-700">{formatCurrency(wallet.balance)}</span>
+              </button>
+              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                <span className="text-red-600 font-medium text-sm">
+                  {user?.name?.charAt(0)?.toUpperCase()}
+                </span>
               </div>
             </div>
           </div>
         </div>
-      </nav>
-      
-      <div className="container mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          {/* Main Content - Trips List */}
-          <div className="xl:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="px-6 py-4 border-b border-gray-100">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Available {tripType === 'taxi' ? 'Taxi' : 'Personnel Car'} Trips
-                  </h2>
-                  <button
-                    onClick={fetchTrips}
-                    disabled={loading}
-                    className="text-gray-500 hover:text-gray-700 text-sm font-medium disabled:opacity-50"
-                  >
-                    {loading ? 'Loading...' : 'Refresh'}
-                  </button>
-                </div>
-              </div>
-            
-            {trips.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No trips available. Create the first one!</p>
-            ) : (
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {trips.map((trip) => (
-                  <div
-                    key={trip.id}
-                    className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${
-                      selectedTrip?.id === trip.id ? 'ring-2 ring-red-500' : ''
-                    }`}
-                    onClick={() => setSelectedTrip(trip)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="font-semibold text-lg">{trip.origin.address}</span>
-                          <span className="text-gray-400">→</span>
-                          <span className="font-semibold text-lg">{trip.destination.address}</span>
-                        </div>
-                        <div className="text-sm text-gray-600 space-y-1">
-                          <p><strong>Departure:</strong> {formatDateTime(trip.departure_time)}</p>
-                          <p><strong>Created by:</strong> {trip.creator_name}</p>
-                          <p><strong>Available seats:</strong> {trip.available_seats}/{trip.max_riders}</p>
-                          <p><strong>Price per person:</strong> {formatCurrency(trip.price_per_person)}</p>
-                          {trip.distance_km > 0 && (
-                            <p><strong>Distance:</strong> {formatDistance(trip.distance_km)} • {formatDuration(trip.duration_minutes)}</p>
-                          )}
-                          {trip.notes && <p><strong>Notes:</strong> {trip.notes}</p>}
-                          {trip.trip_type === 'personal_car' && (
-                            <p><strong>Car:</strong> {trip.car_color} {trip.car_model} ({trip.license_plate})</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col space-y-2">
-                        {trip.available_seats > 0 && !trip.is_creator && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              bookTrip(trip.id);
-                            }}
-                            disabled={loading || (trip.trip_type === 'personal_car' && wallet.balance < trip.price_per_person)}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md disabled:opacity-50"
-                            title={
-                              trip.trip_type === 'personal_car' && wallet.balance < trip.price_per_person 
-                                ? 'Insufficient wallet balance for personal car trip' 
-                                : trip.trip_type === 'personal_car' 
-                                  ? 'Request to join (Wallet payment required)' 
-                                  : 'Book trip (Choose payment method)'
-                            }
-                          >
-                            {trip.trip_type === 'personal_car' ? 'Request Join (Wallet)' : 'Book Trip'}
-                          </button>
-                        )}
-                        {trip.is_creator && (
-                          <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                            Your Trip
-                          </span>
-                        )}
-                        {trip.available_seats === 0 && (
-                          <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm">
-                            Full
-                          </span>
-                        )}
-                        {trip.trip_type === 'personal_car' && wallet.balance < trip.price_per_person && !trip.is_creator && (
-                          <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs">
-                            Low Wallet Balance
-                          </span>
-                        )}
-                        {trip.trip_type !== 'personal_car' && (
-                          <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs">
-                            Cash/Card/Wallet
-                          </span>
-                        )}
-                      </div>
+      </div>
+
+      {/* Trip Mode Toggle */}
+      <div className="px-4 py-3 bg-white border-b border-gray-100">
+        <div className="flex bg-gray-100 rounded-xl p-1">
+          <button
+            onClick={() => setTripType('taxi')}
+            className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all ${
+              tripType === 'taxi' 
+                ? 'bg-white text-red-600 shadow-sm' 
+                : 'text-gray-600'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <span>🚕</span>
+              <span>Taxi</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setTripType('personal_car')}
+            className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all ${
+              tripType === 'personal_car' 
+                ? 'bg-white text-green-600 shadow-sm' 
+                : 'text-gray-600'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <span>🚗</span>
+              <span>Personnel</span>
+            </div>
+          </button>
+        </div>
+        <p className="text-center text-xs text-gray-500 mt-2">
+          {tripType === 'taxi' ? (
+            'Professional taxi sharing - Split costs with colleagues'
+          ) : (
+            'Share rides with personnel traveling your direction'
+          )}
+        </p>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="px-4 py-4">
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="bg-white rounded-xl p-3 text-center shadow-sm">
+            <div className="text-lg font-bold text-gray-900">{trips.length}</div>
+            <div className="text-xs text-gray-500">Available</div>
+          </div>
+          <div className="bg-white rounded-xl p-3 text-center shadow-sm">
+            <div className="text-lg font-bold text-blue-600">{userTrips.created_trips?.length || 0}</div>
+            <div className="text-xs text-gray-500">Created</div>
+          </div>
+          <div className="bg-white rounded-xl p-3 text-center shadow-sm">
+            <div className="text-lg font-bold text-green-600">{userTrips.booked_trips?.length || 0}</div>
+            <div className="text-xs text-gray-500">Booked</div>
+          </div>
+        </div>
+
+        {/* Trips Section */}
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-gray-900">
+            {tripType === 'taxi' ? 'Taxi' : 'Car'} Trips
+          </h2>
+          <button
+            onClick={fetchTrips}
+            disabled={loading}
+            className="text-red-600 text-sm font-medium"
+          >
+            {loading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+        
+        {trips.length === 0 ? (
+          <div className="bg-white rounded-xl p-8 text-center shadow-sm">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">{tripType === 'taxi' ? '🚕' : '🚗'}</span>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No trips yet</h3>
+            <p className="text-gray-500 text-sm mb-4">Be the first to create a trip</p>
+            <button
+              onClick={() => setCurrentView('create-trip')}
+              className="bg-red-600 text-white px-6 py-3 rounded-xl font-medium"
+            >
+              Create Trip
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3 pb-20">
+            {trips.map((trip) => (
+              <div
+                key={trip.id}
+                className="bg-white rounded-xl p-4 shadow-sm border border-gray-100"
+                onClick={() => setSelectedTrip(trip)}
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <h3 className="font-semibold text-gray-900 text-sm truncate">
+                        {trip.origin.address.split(',')[0]}
+                      </h3>
+                      <span className="text-gray-400 text-xs">→</span>
+                      <h3 className="font-semibold text-gray-900 text-sm truncate">
+                        {trip.destination.address.split(',')[0]}
+                      </h3>
+                    </div>
+                    <div className="flex items-center space-x-4 text-xs text-gray-500 mb-2">
+                      <span>{formatDateTime(trip.departure_time)}</span>
+                      <span>{trip.creator_name}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-red-600">{formatCurrency(trip.price_per_person)}</span>
+                      <span className="text-xs text-gray-500">{trip.available_seats}/{trip.max_riders} seats</span>
                     </div>
                   </div>
-                ))}
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    {trip.trip_type === 'personal_car' ? (
+                      <span className="bg-green-50 text-green-700 px-2 py-1 rounded-full text-xs">
+                        Wallet only
+                      </span>
+                    ) : (
+                      <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-full text-xs">
+                        Cash/Card/Wallet
+                      </span>
+                    )}
+                    {trip.is_creator && (
+                      <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
+                        Your trip
+                      </span>
+                    )}
+                  </div>
+                  
+                  {trip.available_seats > 0 && !trip.is_creator && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        bookTrip(trip.id);
+                      }}
+                      disabled={loading || (trip.trip_type === 'personal_car' && wallet.balance < trip.price_per_person)}
+                      className="bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                    >
+                      {trip.trip_type === 'personal_car' ? 'Request' : 'Book'}
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
+            ))}
           </div>
+        )}
+      </div>
+
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-50">
+        <div className="flex justify-around">
+          <button
+            onClick={() => setCurrentView('dashboard')}
+            className={`flex flex-col items-center space-y-1 py-2 px-3 ${
+              currentView === 'dashboard' ? 'text-red-600' : 'text-gray-400'
+            }`}
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            </svg>
+            <span className="text-xs">Trips</span>
+          </button>
           
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Trip Map</h3>
-            <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
-              <TripMap
-                trips={trips}
-                selectedTrip={selectedTrip}
-                onTripSelect={setSelectedTrip}
-                userLocation={userLocation}
-              />
-            </LoadScript>
-            {selectedTrip && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-bold text-gray-800 mb-2">Selected Trip</h4>
-                <p className="text-sm text-gray-600">
-                  <strong>Route:</strong> {selectedTrip.origin.address} → {selectedTrip.destination.address}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <strong>Creator:</strong> {selectedTrip.creator_name}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <strong>Departure:</strong> {formatDateTime(selectedTrip.departure_time)}
-                </p>
-                {selectedTrip.distance_km > 0 && (
-                  <p className="text-sm text-gray-600">
-                    <strong>Distance:</strong> {formatDistance(selectedTrip.distance_km)} • {formatDuration(selectedTrip.duration_minutes)}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => setCurrentView('create-trip')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-gray-400"
+          >
+            <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
+              </svg>
+            </div>
+            <span className="text-xs">Create</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('my-trips')}
+            className={`flex flex-col items-center space-y-1 py-2 px-3 ${
+              currentView === 'my-trips' ? 'text-red-600' : 'text-gray-400'
+            }`}
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
+            </svg>
+            <span className="text-xs">My Trips</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('wallet')}
+            className={`flex flex-col items-center space-y-1 py-2 px-3 ${
+              currentView === 'wallet' ? 'text-red-600' : 'text-gray-400'
+            }`}
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1z"/>
+            </svg>
+            <span className="text-xs">Wallet</span>
+          </button>
         </div>
       </div>
     </div>
   );
 
-  const renderCreateTrip = () => (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-red-600 text-white p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">
-            Create New {tripType === 'taxi' ? 'Taxi' : 'Car'} Trip
-          </h1>
+  // Mobile Wallet Component
+  const renderWallet = () => (
+    <div className="min-h-screen bg-gray-100">
+      <div className="bg-white shadow-sm sticky top-0 z-40">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className="p-2 -ml-2"
+            >
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/>
+              </svg>
+            </button>
+            <h1 className="text-lg font-bold text-gray-900">My Wallet</h1>
+            <div className="w-8"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="px-4 py-6 pb-20">
+        {/* Balance Card */}
+        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-6 mb-6 text-white">
+          <div className="text-center">
+            <p className="text-green-100 text-sm mb-1">Available Balance</p>
+            <div className="text-3xl font-bold mb-2">{formatCurrency(wallet.balance)}</div>
+            <p className="text-green-100 text-xs">Turkish Lira</p>
+          </div>
+        </div>
+        
+        {/* Top-up Packages */}
+        <div className="bg-white rounded-xl p-4 mb-6 shadow-sm">
+          <h3 className="text-lg font-semibold mb-4">Top-up Packages</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(walletPackages).map(([packageId, packageData]) => (
+              <button
+                key={packageId}
+                onClick={() => topUpWallet(packageId)}
+                disabled={loading}
+                className="bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white py-4 px-4 rounded-xl disabled:opacity-50 transition-colors"
+              >
+                <div className="text-xs opacity-90">{packageData.name}</div>
+                <div className="font-bold text-lg">{formatCurrency(packageData.amount)}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Transaction History */}
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <h3 className="text-lg font-semibold mb-4">Recent Transactions</h3>
+          {walletTransactions.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1z"/>
+              </svg>
+              <p className="text-sm">No transactions yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {walletTransactions.slice(0, 10).map((transaction) => (
+                <div key={transaction.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="text-sm font-medium">
+                        {transaction.transaction_type === 'topup' ? 'Top-up' : 
+                         transaction.transaction_type === 'payment' ? 'Payment' : 'Refund'}
+                      </span>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        transaction.status === 'completed' ? 'bg-green-100 text-green-700' : 
+                        transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {transaction.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 truncate">{transaction.description}</p>
+                    <p className="text-xs text-gray-400">{formatDateTime(transaction.created_at)}</p>
+                  </div>
+                  <div className={`text-right font-bold ${
+                    transaction.transaction_type === 'topup' ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {transaction.transaction_type === 'topup' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-50">
+        <div className="flex justify-around">
           <button
             onClick={() => setCurrentView('dashboard')}
-            className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-md"
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-gray-400"
           >
-            Back to Dashboard
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            </svg>
+            <span className="text-xs">Trips</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('create-trip')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-gray-400"
+          >
+            <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
+              </svg>
+            </div>
+            <span className="text-xs">Create</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('my-trips')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-gray-400"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
+            </svg>
+            <span className="text-xs">My Trips</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('wallet')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-red-600"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1z"/>
+            </svg>
+            <span className="text-xs">Wallet</span>
           </button>
         </div>
-      </nav>
+      </div>
+    </div>
+  );
+
+  // Mobile Create Trip Component
+  const renderCreateTrip = () => (
+    <div className="min-h-screen bg-gray-100">
+      <div className="bg-white shadow-sm sticky top-0 z-40">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className="p-2 -ml-2"
+            >
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/>
+              </svg>
+            </button>
+            <h1 className="text-lg font-bold text-gray-900">
+              Create {tripType === 'taxi' ? 'Taxi' : 'Car'} Trip
+            </h1>
+            <div className="w-8"></div>
+          </div>
+        </div>
+      </div>
       
-      <div className="container mx-auto p-6">
-        <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl mx-auto">
-          <form onSubmit={createTrip} className="space-y-4">
-            <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY} libraries={['places']}>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Origin</label>
-                <LocationAutocomplete
-                  onPlaceSelect={(location) => {
-                    if (tripType === 'taxi') {
-                      setTripForm({ ...tripForm, origin: location });
-                    } else {
-                      setPersonalCarForm({ ...personalCarForm, origin: location });
-                    }
-                  }}
-                  placeholder="Select trip origin (e.g., Istanbul Airport)"
-                />
-                {((tripType === 'taxi' ? tripForm.origin : personalCarForm.origin)) && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Selected: {(tripType === 'taxi' ? tripForm.origin : personalCarForm.origin).address}
-                  </p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
-                <LocationAutocomplete
-                  onPlaceSelect={(location) => {
-                    if (tripType === 'taxi') {
-                      setTripForm({ ...tripForm, destination: location });
-                    } else {
-                      setPersonalCarForm({ ...personalCarForm, destination: location });
-                    }
-                  }}
-                  placeholder="Select trip destination (e.g., City Center)"
-                />
-                {((tripType === 'taxi' ? tripForm.destination : personalCarForm.destination)) && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Selected: {(tripType === 'taxi' ? tripForm.destination : personalCarForm.destination).address}
-                  </p>
-                )}
-              </div>
-            </LoadScript>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Departure Time</label>
-              <input
-                type="datetime-local"
-                value={tripType === 'taxi' ? tripForm.departure_time : personalCarForm.departure_time}
-                onChange={(e) => {
+      <div className="px-4 py-6 pb-20">
+        <form onSubmit={createTrip} className="space-y-6">
+          <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY} libraries={['places']}>
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <label className="block text-sm font-medium text-gray-700 mb-2">From</label>
+              <LocationAutocomplete
+                onPlaceSelect={(location) => {
                   if (tripType === 'taxi') {
-                    setTripForm({ ...tripForm, departure_time: e.target.value });
+                    setTripForm({ ...tripForm, origin: location });
                   } else {
-                    setPersonalCarForm({ ...personalCarForm, departure_time: e.target.value });
+                    setPersonalCarForm({ ...personalCarForm, origin: location });
                   }
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                required
+                placeholder="Where are you starting from?"
               />
+              {((tripType === 'taxi' ? tripForm.origin : personalCarForm.origin)) && (
+                <p className="text-xs text-gray-500 mt-2 truncate">
+                  {(tripType === 'taxi' ? tripForm.origin : personalCarForm.origin).address}
+                </p>
+              )}
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Available Seats</label>
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <label className="block text-sm font-medium text-gray-700 mb-2">To</label>
+              <LocationAutocomplete
+                onPlaceSelect={(location) => {
+                  if (tripType === 'taxi') {
+                    setTripForm({ ...tripForm, destination: location });
+                  } else {
+                    setPersonalCarForm({ ...personalCarForm, destination: location });
+                  }
+                }}
+                placeholder="Where are you going?"
+              />
+              {((tripType === 'taxi' ? tripForm.destination : personalCarForm.destination)) && (
+                <p className="text-xs text-gray-500 mt-2 truncate">
+                  {(tripType === 'taxi' ? tripForm.destination : personalCarForm.destination).address}
+                </p>
+              )}
+            </div>
+          </LoadScript>
+          
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Departure Time</label>
+            <input
+              type="datetime-local"
+              value={tripType === 'taxi' ? tripForm.departure_time : personalCarForm.departure_time}
+              onChange={(e) => {
+                if (tripType === 'taxi') {
+                  setTripForm({ ...tripForm, departure_time: e.target.value });
+                } else {
+                  setPersonalCarForm({ ...personalCarForm, departure_time: e.target.value });
+                }
+              }}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
+              required
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Seats</label>
               <select
                 value={tripType === 'taxi' ? tripForm.available_seats : personalCarForm.available_seats}
                 onChange={(e) => {
@@ -1271,7 +1249,7 @@ function App() {
                     setPersonalCarForm({ ...personalCarForm, available_seats: parseInt(e.target.value) });
                   }
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
               >
                 <option value={1}>1</option>
                 <option value={2}>2</option>
@@ -1281,8 +1259,8 @@ function App() {
               </select>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Price per Person (₺)</label>
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Price (₺)</label>
               <input
                 type="number"
                 step="0.01"
@@ -1294,187 +1272,296 @@ function App() {
                     setPersonalCarForm({ ...personalCarForm, price_per_person: e.target.value });
                   }
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
                 placeholder="0.00"
                 required
               />
             </div>
-            
-            {tripType === 'personal_car' && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Car Model</label>
-                  <input
-                    type="text"
-                    value={personalCarForm.car_model}
-                    onChange={(e) => setPersonalCarForm({ ...personalCarForm, car_model: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                    placeholder="e.g., Toyota Corolla"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Car Color</label>
+          </div>
+          
+          {tripType === 'personal_car' && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-xl p-4 shadow-sm">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Car Model</label>
+                <input
+                  type="text"
+                  value={personalCarForm.car_model}
+                  onChange={(e) => setPersonalCarForm({ ...personalCarForm, car_model: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
+                  placeholder="e.g., Toyota Corolla"
+                  required
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white rounded-xl p-4 shadow-sm">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
                   <input
                     type="text"
                     value={personalCarForm.car_color}
                     onChange={(e) => setPersonalCarForm({ ...personalCarForm, car_color: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                    placeholder="e.g., White"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
+                    placeholder="White"
                     required
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">License Plate</label>
+                <div className="bg-white rounded-xl p-4 shadow-sm">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Plate</label>
                   <input
                     type="text"
                     value={personalCarForm.license_plate}
                     onChange={(e) => setPersonalCarForm({ ...personalCarForm, license_plate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                    placeholder="e.g., 34 ABC 123"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
+                    placeholder="34 ABC 123"
                     required
                   />
                 </div>
-              </>
-            )}
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
-              <textarea
-                value={tripType === 'taxi' ? tripForm.notes : personalCarForm.notes}
-                onChange={(e) => {
-                  if (tripType === 'taxi') {
-                    setTripForm({ ...tripForm, notes: e.target.value });
-                  } else {
-                    setPersonalCarForm({ ...personalCarForm, notes: e.target.value });
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                rows="3"
-                placeholder="Any additional information..."
-              />
+              </div>
             </div>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
-            >
-              {loading ? 'Creating Trip...' : 'Create Trip'}
-            </button>
-          </form>
+          )}
+          
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+            <textarea
+              value={tripType === 'taxi' ? tripForm.notes : personalCarForm.notes}
+              onChange={(e) => {
+                if (tripType === 'taxi') {
+                  setTripForm({ ...tripForm, notes: e.target.value });
+                } else {
+                  setPersonalCarForm({ ...personalCarForm, notes: e.target.value });
+                }
+              }}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-base"
+              rows="3"
+              placeholder="Any additional information..."
+            />
+          </div>
+          
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-red-600 text-white py-4 px-4 rounded-xl hover:bg-red-700 disabled:opacity-50 font-medium text-base"
+          >
+            {loading ? 'Creating Trip...' : 'Create Trip'}
+          </button>
+        </form>
+      </div>
+      
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-50">
+        <div className="flex justify-around">
+          <button
+            onClick={() => setCurrentView('dashboard')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-gray-400"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            </svg>
+            <span className="text-xs">Trips</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('create-trip')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-red-600"
+          >
+            <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
+              </svg>
+            </div>
+            <span className="text-xs">Create</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('my-trips')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-gray-400"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
+            </svg>
+            <span className="text-xs">My Trips</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('wallet')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-gray-400"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1z"/>
+            </svg>
+            <span className="text-xs">Wallet</span>
+          </button>
         </div>
       </div>
     </div>
   );
 
-  const renderMyTrips = () => {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-red-600 text-white p-4">
-          <div className="container mx-auto flex justify-between items-center">
-            <h1 className="text-2xl font-bold">My Trips</h1>
+  // Mobile My Trips Component
+  const renderMyTrips = () => (
+    <div className="min-h-screen bg-gray-100">
+      <div className="bg-white shadow-sm sticky top-0 z-40">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
             <button
-              onClick={() => setCurrentView('home')}
-              className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-md"
+              onClick={() => setCurrentView('dashboard')}
+              className="p-2 -ml-2"
             >
-              Back to Home
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/>
+              </svg>
             </button>
-          </div>
-        </nav>
-        
-        <div className="container mx-auto p-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-bold mb-4 text-gray-800">Trips I Created</h3>
-              {userTrips.created_trips.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No trips created yet.</p>
-              ) : (
-                <div className="space-y-4">
-                  {userTrips.created_trips.map((trip) => (
-                    <div key={trip.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-semibold">{trip.origin.address} → {trip.destination.address}</p>
-                          <p className="text-sm text-gray-600">{formatDateTime(trip.departure_time)}</p>
-                        </div>
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          trip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {trip.status}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Bookings: {trip.bookings} | Available: {trip.available_seats}
-                      </p>
-                      <p className="text-sm text-gray-600 mb-2">Price: {formatCurrency(trip.price_per_person)}</p>
-                      {trip.distance_km > 0 && (
-                        <p className="text-sm text-gray-600 mb-3">
-                          Distance: {formatDistance(trip.distance_km)} • {formatDuration(trip.duration_minutes)}
-                        </p>
-                      )}
-                      {trip.status === 'active' && (
-                        <button
-                          onClick={() => cancelTrip(trip.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
-                        >
-                          Cancel Trip
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-bold mb-4 text-gray-800">Trips I Booked</h3>
-              {userTrips.booked_trips.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No trips booked yet.</p>
-              ) : (
-                <div className="space-y-4">
-                  {userTrips.booked_trips.map((trip) => (
-                    <div key={trip.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-semibold">{trip.origin.address} → {trip.destination.address}</p>
-                          <p className="text-sm text-gray-600">{formatDateTime(trip.departure_time)}</p>
-                        </div>
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          trip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {trip.status}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">Created by: {trip.creator_name}</p>
-                      <p className="text-sm text-gray-600 mb-2">Price: {formatCurrency(trip.price_per_person)}</p>
-                      {trip.distance_km > 0 && (
-                        <p className="text-sm text-gray-600">
-                          Distance: {formatDistance(trip.distance_km)} • {formatDuration(trip.duration_minutes)}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <h1 className="text-lg font-bold text-gray-900">My Trips</h1>
+            <div className="w-8"></div>
           </div>
         </div>
       </div>
-    );
-  };
+      
+      <div className="px-4 py-6 pb-20">
+        <div className="space-y-6">
+          {/* Created Trips */}
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <h3 className="text-lg font-semibold mb-4 flex items-center">
+              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+              Trips I Created ({userTrips.created_trips?.length || 0})
+            </h3>
+            {(userTrips.created_trips?.length || 0) === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"/>
+                </svg>
+                <p className="text-sm">No trips created yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {userTrips.created_trips.map((trip) => (
+                  <div key={trip.id} className="border border-gray-200 rounded-xl p-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-medium text-sm">{trip.origin.address.split(',')[0]} → {trip.destination.address.split(',')[0]}</p>
+                        <p className="text-xs text-gray-500">{formatDateTime(trip.departure_time)}</p>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        trip.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {trip.status}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-gray-600">
+                      <span>Bookings: {trip.bookings} | Seats: {trip.available_seats}</span>
+                      <span>{formatCurrency(trip.price_per_person)}</span>
+                    </div>
+                    {trip.status === 'active' && (
+                      <button
+                        onClick={() => cancelTrip(trip.id)}
+                        className="mt-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm"
+                      >
+                        Cancel Trip
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Booked Trips */}
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <h3 className="text-lg font-semibold mb-4 flex items-center">
+              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+              Trips I Booked ({userTrips.booked_trips?.length || 0})
+            </h3>
+            {(userTrips.booked_trips?.length || 0) === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"/>
+                </svg>
+                <p className="text-sm">No trips booked yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {userTrips.booked_trips.map((trip) => (
+                  <div key={trip.id} className="border border-gray-200 rounded-xl p-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-medium text-sm">{trip.origin.address.split(',')[0]} → {trip.destination.address.split(',')[0]}</p>
+                        <p className="text-xs text-gray-500">{formatDateTime(trip.departure_time)}</p>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        trip.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {trip.status}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      <p>Driver: {trip.creator_name}</p>
+                      <p>Price: {formatCurrency(trip.price_per_person)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-50">
+        <div className="flex justify-around">
+          <button
+            onClick={() => setCurrentView('dashboard')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-gray-400"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            </svg>
+            <span className="text-xs">Trips</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('create-trip')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-gray-400"
+          >
+            <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
+              </svg>
+            </div>
+            <span className="text-xs">Create</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('my-trips')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-red-600"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
+            </svg>
+            <span className="text-xs">My Trips</span>
+          </button>
+          
+          <button
+            onClick={() => setCurrentView('wallet')}
+            className="flex flex-col items-center space-y-1 py-2 px-3 text-gray-400"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1z"/>
+            </svg>
+            <span className="text-xs">Wallet</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (currentView === 'login') return renderLogin();
   if (currentView === 'register') return renderRegister();
-  if (currentView === 'home') return renderHome();
   if (currentView === 'dashboard') return renderDashboard();
   if (currentView === 'create-trip') return renderCreateTrip();
   if (currentView === 'my-trips') return renderMyTrips();
   if (currentView === 'wallet') return renderWallet();
   
-  return <div>App is loading...</div>;
+  return <div>Loading...</div>;
 }
 
 export default App;
