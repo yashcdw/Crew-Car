@@ -1208,9 +1208,13 @@ async def get_trip_details(trip_id: str, current_user: dict = Depends(get_curren
 
 @app.post("/api/trips/{trip_id}/book")
 async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dict = Depends(get_current_user)):
+    # Check both taxi trips and personal car trips
     trip = trips_collection.find_one({"id": trip_id})
     if not trip:
-        raise HTTPException(status_code=404, detail="Trip not found")
+        # Check personal car trips collection
+        trip = personal_car_trips_collection.find_one({"id": trip_id})
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
     
     if trip["creator_id"] == current_user["id"]:
         raise HTTPException(status_code=400, detail="Cannot book your own trip")
