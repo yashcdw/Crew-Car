@@ -869,93 +869,91 @@ function App() {
 
   const renderWallet = () => (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-red-600 text-white p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">My Wallet</h1>
-          <div className="flex items-center space-x-4">
-            <span>Balance: {formatCurrency(wallet.balance)}</span>
-            <button
-              onClick={() => setCurrentView('home')}
-              className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-md"
-            >
-              Back to Home
-            </button>
+      <nav className="bg-white shadow-sm border-b border-gray-200">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-red-600">My Wallet</h1>
+            <div className="flex items-center space-x-4">
+              <span className="text-lg font-semibold text-gray-900">{formatCurrency(wallet.balance)}</span>
+              <button
+                onClick={() => setCurrentView('dashboard')}
+                className="text-gray-600 hover:text-gray-900 px-4 py-2 text-sm font-medium"
+              >
+                Back to Dashboard
+              </button>
+            </div>
           </div>
         </div>
       </nav>
       
-      <div className="bg-white border-b border-gray-100">
-        <div className="container mx-auto px-6 py-3">
-          <p className="text-gray-600 text-center text-sm">
-            {tripType === 'taxi' ? (
-              'Professional taxi sharing - Split costs with fellow personnel'
-            ) : (
-              'Share rides with colleagues traveling in your direction'
-            )}
-          </p>
-        </div>
-      </div>
-      
-      <div className="container mx-auto p-6">
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Wallet Balance</h3>
-            <div className="text-center mb-6">
-              <div className="text-4xl font-bold text-green-600 mb-2">
-                {formatCurrency(wallet.balance)}
-              </div>
-              <p className="text-gray-600">Available Balance</p>
+      <div className="container mx-auto px-6 py-8">
+        <div className="grid gap-8 md:grid-cols-2">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900">Wallet Balance</h3>
             </div>
-            
-            <h4 className="text-lg font-semibold mb-4 text-gray-800">Top-up Packages</h4>
-            <div className="grid grid-cols-2 gap-3">
-              {Object.entries(walletPackages).map(([packageId, packageData]) => (
-                <button
-                  key={packageId}
-                  onClick={() => topUpWallet(packageId)}
-                  disabled={loading}
-                  className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-md disabled:opacity-50 transition-colors"
-                >
-                  <div className="text-sm">{packageData.name}</div>
-                  <div className="font-bold">{formatCurrency(packageData.amount)}</div>
-                </button>
-              ))}
+            <div className="p-6">
+              <div className="text-center mb-8">
+                <div className="text-4xl font-bold text-green-600 mb-2">
+                  {formatCurrency(wallet.balance)}
+                </div>
+                <p className="text-gray-600">Available Balance</p>
+              </div>
+              
+              <h4 className="text-base font-medium mb-4 text-gray-900">Top-up Packages</h4>
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(walletPackages).map(([packageId, packageData]) => (
+                  <button
+                    key={packageId}
+                    onClick={() => topUpWallet(packageId)}
+                    disabled={loading}
+                    className="bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white py-3 px-4 rounded-lg disabled:opacity-50 transition-colors"
+                  >
+                    <div className="text-sm">{packageData.name}</div>
+                    <div className="font-bold">{formatCurrency(packageData.amount)}</div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Transaction History</h3>
-            {walletTransactions.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No transactions yet.</p>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {walletTransactions.map((transaction) => (
-                  <div key={transaction.id} className="border rounded-lg p-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-semibold text-sm">
-                          {transaction.transaction_type === 'topup' ? '💰 Top-up' : 
-                           transaction.transaction_type === 'payment' ? '💳 Payment' : '🔄 Refund'}
-                        </p>
-                        <p className="text-gray-600 text-xs">{transaction.description}</p>
-                        <p className="text-gray-500 text-xs">{formatDateTime(transaction.created_at)}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className={`font-bold ${transaction.transaction_type === 'topup' ? 'text-green-600' : 'text-red-600'}`}>
-                          {transaction.transaction_type === 'topup' ? '+' : '-'}{formatCurrency(transaction.amount)}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900">Transaction History</h3>
+            </div>
+            <div className="p-6">
+              {walletTransactions.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No transactions yet.</p>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {walletTransactions.map((transaction) => (
+                    <div key={transaction.id} className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium text-sm text-gray-900">
+                            {transaction.transaction_type === 'topup' ? 'Top-up' : 
+                             transaction.transaction_type === 'payment' ? 'Payment' : 'Refund'}
+                          </p>
+                          <p className="text-gray-600 text-xs">{transaction.description}</p>
+                          <p className="text-gray-500 text-xs">{formatDateTime(transaction.created_at)}</p>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          transaction.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                          transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {transaction.status}
-                        </span>
+                        <div className="text-right">
+                          <div className={`font-bold ${transaction.transaction_type === 'topup' ? 'text-green-600' : 'text-red-600'}`}>
+                            {transaction.transaction_type === 'topup' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            transaction.status === 'completed' ? 'bg-green-50 text-green-700' : 
+                            transaction.status === 'pending' ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
+                          }`}>
+                            {transaction.status}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
