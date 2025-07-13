@@ -698,7 +698,103 @@ async def respond_to_join_request(request_id: str, action: str, current_user: di
         join_request["requester_id"]
     )
     
-    return {"message": f"Request {new_status} successfully"}
+@app.get("/api/trips/{trip_id}/messages")
+async def get_trip_messages(trip_id: str, current_user: dict = Depends(get_current_user)):
+    """Get chat messages for a trip"""
+    # Verify user is part of this trip
+    participants = await get_trip_participants(trip_id)
+    if current_user["id"] not in participants:
+        raise HTTPException(status_code=403, detail="Not authorized to view messages for this trip")
+    
+    messages = list(messages_collection.find({"trip_id": trip_id}).sort("timestamp", 1))
+    
+    message_list = []
+    for msg in messages:
+        message_list.append({
+            "id": msg["id"],
+            "sender_id": msg["sender_id"],
+            "sender_name": msg["sender_name"],
+            "content": msg["content"],
+            "message_type": msg["message_type"],
+            "timestamp": msg["timestamp"]
+        })
+    
+    return {"messages": message_list}
+
+@app.get("/api/trips/{trip_id}/live-tracking")
+async def get_live_tracking(trip_id: str, current_user: dict = Depends(get_current_user)):
+    """Get live tracking data for a trip"""
+    # Verify user is part of this trip
+    participants = await get_trip_participants(trip_id)
+    if current_user["id"] not in participants:
+        raise HTTPException(status_code=403, detail="Not authorized to view tracking for this trip")
+    
+    tracking_data = list(live_tracking_collection.find({"trip_id": trip_id}))
+    
+    locations = []
+    for location in tracking_data:
+        user = users_collection.find_one({"id": location["user_id"]})
+        locations.append({
+            "user_id": location["user_id"],
+            "user_name": user["name"] if user else "Unknown",
+            "latitude": location["latitude"],
+            "longitude": location["longitude"],
+            "heading": location.get("heading"),
+            "speed": location.get("speed"),
+            "timestamp": location["timestamp"]
+        })
+    
+    return {"locations": locations}
+
+@app.post("/api/calls/initiate")
+async def initiate_call(call_request: CallRequest, current_user: dict = Depends(get_current_user)):
+    """Initiate a voice call using Twilio"""
+    if not twilio_client:
+        raise HTTPException(status_code=500, detail="Calling service not available")
+    
+    # Get the target user's phone number
+    target_user = users_collection.find_one({"id": call_request.to_user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    try:
+        # Create a conference call
+        conference_name = f"trip_{call_request.trip_id}_{uuid.uuid4().hex[:8]}" if call_request.trip_id else f"call_{uuid.uuid4().hex[:8]}"
+        
+        # Call the initiator first
+        call1 = twilio_client.calls.create(
+            to=current_user["phone"],
+            from_=TWILIO_PHONE_NUMBER,
+            url=f"http://demo.twilio.com/docs/voice.xml"  # Replace with your TwiML URL
+        )
+        
+        # Call the target user
+        call2 = twilio_client.calls.create(
+            to=target_user["phone"],
+            from_=TWILIO_PHONE_NUMBER,
+            url=f"http://demo.twilio.com/docs/voice.xml"  # Replace with your TwiML URL
+        )
+        
+        return {
+            "message": "Call initiated successfully",
+            "conference_name": conference_name,
+            "call_sid_1": call1.sid,
+            "call_sid_2": call2.sid
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to initiate call: {str(e)}")
+
+@app.get("/api/bus-stops/nearby")
+async def get_nearby_bus_stops(lat: float, lng: float, radius_km: float = 2):
+    """Get nearby bus stops"""
+    location = Location(
+        address="",
+        coordinates={"lat": lat, "lng": lng}
+    )
+    
+    bus_stops = find_nearest_bus_stops(location, radius_km)
+    return {"bus_stops": [stop.dict() for stop in bus_stops]}
 
 @app.get("/api/trips/{trip_id}")
 async def get_trip_details(trip_id: str, current_user: dict = Depends(get_current_user)):
