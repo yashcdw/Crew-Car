@@ -218,9 +218,9 @@ class WalletFunctionalityTest(unittest.TestCase):
         
         print("✅ Unauthorized access correctly handled")
 
-    def test_08_wallet_topup_endpoint_structure(self):
+    def test_09_wallet_topup_endpoint_structure(self):
         """Test wallet top-up endpoint structure (without actual payment)"""
-        print("\n8. Testing wallet top-up endpoint structure...")
+        print("\n9. Testing wallet top-up endpoint structure...")
         
         topup_data = {
             "package_id": "small",
