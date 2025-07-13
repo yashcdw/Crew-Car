@@ -155,7 +155,17 @@ class WalletFunctionalityTest(unittest.TestCase):
         WalletFunctionalityTest.trip_id = data["trip_id"]
         print(f"✅ Trip created successfully - Trip ID: {WalletFunctionalityTest.trip_id}")
 
-    def test_05_book_trip_with_insufficient_wallet_balance(self):
+    def test_05_register_second_user(self):
+        """Register a second user for booking tests"""
+        print("\n5. Registering second user for booking tests...")
+        response = self.api_call("/api/auth/register", method="POST", data=self.test_user2)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        WalletFunctionalityTest.token2 = data["token"]
+        WalletFunctionalityTest.user_id2 = data["user"]["id"]
+        print(f"✅ Second user registered - User ID: {WalletFunctionalityTest.user_id2}")
+
+    def test_06_book_trip_with_insufficient_wallet_balance(self):
         """Test booking trip with wallet payment (should fail due to insufficient balance)"""
         print("\n5. Testing trip booking with wallet payment (insufficient balance)...")
         
