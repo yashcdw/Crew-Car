@@ -4,11 +4,13 @@ import uuid
 from datetime import datetime, timedelta
 
 class WalletFunctionalityTest(unittest.TestCase):
+    # Class variables to persist across test methods
+    token = None
+    user_id = None
+    trip_id = None
+    
     def setUp(self):
         self.base_url = "https://edd6d56b-2a86-4bf5-b3c7-2539850efc2a.preview.emergentagent.com"
-        self.token = None
-        self.user_id = None
-        self.trip_id = None
         
         # Generate unique test data
         self.test_id = str(uuid.uuid4())[:8]
