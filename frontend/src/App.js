@@ -240,6 +240,12 @@ function App() {
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [tripType, setTripType] = useState('taxi'); // 'taxi' or 'personal_car'
+  
+  // Real-time features
+  const [socket, setSocket] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [liveLocations, setLiveLocations] = useState([]);
 
   // Form states
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
@@ -249,8 +255,13 @@ function App() {
   const [tripForm, setTripForm] = useState({
     origin: null, destination: null, departure_time: '', available_seats: 3, price_per_person: '', notes: ''
   });
+  const [personalCarForm, setPersonalCarForm] = useState({
+    origin: null, destination: null, departure_time: '', available_seats: 3, 
+    price_per_person: '', notes: '', car_model: '', car_color: '', license_plate: ''
+  });
   const [bookingForm, setBookingForm] = useState({
-    trip_id: '', pickup_location: null
+    home_address: null,
+    pickup_location: null
   });
 
   useEffect(() => {
