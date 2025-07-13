@@ -45,8 +45,7 @@ class LocationAirportFeaturesTest(unittest.TestCase):
             "department": "Cabin Crew",
             "password": "TurkishAir123!"
         }
-        self.token2 = None
-        self.user_id2 = None
+        # Remove instance variables since we're using class variables now
         
         # Airport trip data
         tomorrow = datetime.now() + timedelta(days=1)
