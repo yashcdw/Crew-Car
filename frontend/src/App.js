@@ -717,16 +717,16 @@ function App() {
   // Mobile Register Component
   const renderRegister = () => (
     <div className="min-h-screen bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
-        <div className="text-center mb-8">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm max-h-screen overflow-y-auto">
+        <div className="text-center mb-6">
           <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <span className="text-white font-bold text-xl">TK</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Join Turkish Airlines</h1>
-          <p className="text-gray-600">Car Pooling Community</p>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">Join Turkish Airlines</h1>
+          <p className="text-gray-600 text-sm">Car Pooling Community</p>
         </div>
         
-        <form onSubmit={register} className="space-y-4">
+        <form onSubmit={register} className="space-y-3">
           <input
             type="text"
             value={registerForm.name}
@@ -781,16 +781,34 @@ function App() {
             required
           />
           
+          {/* Home Address Section */}
+          <div className="border-t pt-3 mt-4">
+            <p className="text-sm font-medium text-gray-700 mb-2">🏠 Home Address (Optional)</p>
+            <p className="text-xs text-gray-500 mb-3">For easier pickup and airport trip suggestions</p>
+            <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY} libraries={['places']}>
+              <LocationAutocomplete
+                onPlaceSelect={(location) => setRegisterForm({ ...registerForm, home_address: location })}
+                placeholder="Enter your home address"
+                value={registerForm.home_address?.address || ''}
+              />
+            </LoadScript>
+            {registerForm.home_address && (
+              <div className="mt-2 p-2 bg-green-50 rounded-lg">
+                <p className="text-xs text-green-700">✓ Address saved: {registerForm.home_address.address}</p>
+              </div>
+            )}
+          </div>
+          
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-600 text-white py-3 px-4 rounded-xl hover:bg-red-700 disabled:opacity-50 font-medium text-base"
+            className="w-full bg-red-600 text-white py-3 px-4 rounded-xl hover:bg-red-700 disabled:opacity-50 font-medium text-base mt-4"
           >
             {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
         
-        <p className="text-center mt-6 text-sm text-gray-600">
+        <p className="text-center mt-4 text-sm text-gray-600">
           Already have an account?{' '}
           <button
             onClick={() => setCurrentView('login')}
