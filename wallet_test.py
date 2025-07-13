@@ -271,9 +271,9 @@ class WalletFunctionalityTest(unittest.TestCase):
         else:
             print(f"⚠️  Unexpected response for invalid package: {response.status_code}")
 
-    def test_10_cleanup_created_trip(self):
+    def test_11_cleanup_created_trip(self):
         """Clean up the created trip"""
-        print("\n10. Cleaning up created trip...")
+        print("\n11. Cleaning up created trip...")
         if WalletFunctionalityTest.trip_id:
             response = self.api_call(f"/api/trips/{WalletFunctionalityTest.trip_id}", method="DELETE", token=WalletFunctionalityTest.token)
             if response.status_code == 200:
