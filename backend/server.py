@@ -317,6 +317,61 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
+def get_or_create_wallet(user_id: str) -> dict:
+    """Get or create wallet for a user"""
+    wallet = wallet_collection.find_one({"user_id": user_id})
+    if not wallet:
+        wallet = {
+            "user_id": user_id,
+            "balance": 0.0,
+            "currency": "try",
+            "last_updated": datetime.utcnow()
+        }
+        wallet_collection.insert_one(wallet)
+    return wallet
+
+def update_wallet_balance(user_id: str, amount: float, transaction_type: str = "topup") -> dict:
+    """Update wallet balance and return updated wallet"""
+    wallet = get_or_create_wallet(user_id)
+    
+    if transaction_type == "payment" and wallet["balance"] < amount:
+        raise HTTPException(status_code=400, detail="Insufficient wallet balance")
+    
+    new_balance = wallet["balance"] + amount if transaction_type == "topup" else wallet["balance"] - amount
+    
+    wallet_collection.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "balance": new_balance,
+                "last_updated": datetime.utcnow()
+            }
+        }
+    )
+    
+    wallet["balance"] = new_balance
+    wallet["last_updated"] = datetime.utcnow()
+    return wallet
+
+def create_wallet_transaction(user_id: str, transaction_type: str, amount: float, description: str, 
+                             payment_session_id: str = None, status: str = "pending") -> str:
+    """Create a wallet transaction record"""
+    transaction_id = str(uuid.uuid4())
+    transaction = {
+        "id": transaction_id,
+        "user_id": user_id,
+        "transaction_type": transaction_type,
+        "amount": amount,
+        "currency": "try",
+        "description": description,
+        "status": status,
+        "created_at": datetime.utcnow(),
+        "payment_session_id": payment_session_id
+    }
+    
+    payment_transactions_collection.insert_one(transaction)
+    return transaction_id
+
 def calculate_trip_route(origin: Location, destination: Location) -> dict:
     """Calculate route information using Google Maps"""
     if not gmaps:
