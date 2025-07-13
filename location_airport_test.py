@@ -165,7 +165,7 @@ class LocationAirportFeaturesTest(unittest.TestCase):
     def test_03_get_profile_with_home_address(self):
         """Test getting user profile with home address"""
         print("\n3. Testing get user profile with home address...")
-        response = self.api_call("/api/user/profile", token=self.token)
+        response = self.api_call("/api/user/profile", token=LocationAirportFeaturesTest.token)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["email"], self.test_user["email"])
@@ -180,7 +180,7 @@ class LocationAirportFeaturesTest(unittest.TestCase):
     def test_04_get_profile_without_home_address(self):
         """Test getting user profile without home address"""
         print("\n4. Testing get user profile without home address...")
-        response = self.api_call("/api/user/profile", token=self.token2)
+        response = self.api_call("/api/user/profile", token=LocationAirportFeaturesTest.token2)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["email"], self.test_user2["email"])
