@@ -67,6 +67,19 @@ TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
 TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER')
 twilio_client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN else None
 
+# Stripe client
+STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
+stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY) if STRIPE_API_KEY else None
+print(f"Stripe integration initialized: {'Yes' if stripe_checkout else 'No'}")
+
+# Wallet top-up packages (server-side defined for security)
+WALLET_PACKAGES = {
+    "small": {"amount": 10.0, "currency": "try", "name": "Small Top-up"},
+    "medium": {"amount": 25.0, "currency": "try", "name": "Medium Top-up"},
+    "large": {"amount": 50.0, "currency": "try", "name": "Large Top-up"},
+    "jumbo": {"amount": 100.0, "currency": "try", "name": "Jumbo Top-up"}
+}
+
 # Redis client for real-time features
 try:
     redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
