@@ -252,8 +252,8 @@ class WalletFunctionalityTest(unittest.TestCase):
     def test_10_cleanup_created_trip(self):
         """Clean up the created trip"""
         print("\n10. Cleaning up created trip...")
-        if self.trip_id:
-            response = self.api_call(f"/api/trips/{self.trip_id}", method="DELETE", token=self.token)
+        if WalletFunctionalityTest.trip_id:
+            response = self.api_call(f"/api/trips/{WalletFunctionalityTest.trip_id}", method="DELETE", token=WalletFunctionalityTest.token)
             if response.status_code == 200:
                 print("✅ Trip cleaned up successfully")
             else:
