@@ -46,6 +46,8 @@ join_requests_collection = db.join_requests
 messages_collection = db.messages
 live_tracking_collection = db.live_tracking
 bus_stops_collection = db.bus_stops
+payment_transactions_collection = db.payment_transactions
+wallet_collection = db.wallet
 
 # JWT Secret
 JWT_SECRET = "your-secret-key-here"
