@@ -11,6 +11,10 @@ import hashlib
 import jwt
 import googlemaps
 from bson import ObjectId
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize FastAPI app
 app = FastAPI(title="Turkish Airlines Car Pooling API")
