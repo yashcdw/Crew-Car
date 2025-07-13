@@ -147,6 +147,11 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 # Pydantic models
+class Location(BaseModel):
+    address: str
+    coordinates: Dict[str, float]  # {lat: float, lng: float}
+    place_id: Optional[str] = None
+
 class UserCreate(BaseModel):
     name: str
     email: str
@@ -154,6 +159,7 @@ class UserCreate(BaseModel):
     employee_id: str
     department: str
     password: str
+    home_address: Optional[Location] = None
 
 class UserLogin(BaseModel):
     email: str
@@ -166,8 +172,7 @@ class User(BaseModel):
     phone: str
     employee_id: str
     department: str
-
-class Location(BaseModel):
+    home_address: Optional[Location] = None
     address: str
     coordinates: Dict[str, float]  # {lat: float, lng: float}
     place_id: Optional[str] = None
