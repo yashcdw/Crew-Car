@@ -158,8 +158,7 @@ const TripMap = ({ trips, selectedTrip, onTripSelect, userLocation }) => {
       </GoogleMap>
     </div>
   );
-
-// Chat Component
+};
 const ChatComponent = ({ tripId, currentUser, messages, onSendMessage }) => {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef(null);
