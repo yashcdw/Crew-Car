@@ -302,14 +302,39 @@ function App() {
     }
   }, [user, token]);
 
-  useEffect(() => {
-    if (currentView === 'dashboard') {
-      fetchTrips();
+  const sendWebSocketMessage = (messageData) => {
+    if (socket && socket.connected) {
+      socket.emit('message', messageData);
     }
-    if (currentView === 'my-trips') {
-      fetchUserTrips();
+  };
+
+  const sendChatMessage = (content) => {
+    if (selectedTrip && socket) {
+      const messageData = {
+        type: 'chat_message',
+        trip_id: selectedTrip.id,
+        content: content,
+        message_type: 'text'
+      };
+      sendWebSocketMessage(messageData);
     }
-  }, [currentView]);
+  };
+
+  const updateLiveLocation = (tripId) => {
+    if (navigator.geolocation && socket) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const locationData = {
+          type: 'location_update',
+          trip_id: tripId,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          heading: position.coords.heading,
+          speed: position.coords.speed
+        };
+        sendWebSocketMessage(locationData);
+      });
+    }
+  };
 
   // Get user's current location
   useEffect(() => {
