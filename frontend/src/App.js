@@ -896,12 +896,37 @@ function App() {
         </p>
       </div>
 
-      {/* Quick Stats */}
+      {/* Quick Stats and Airport Banner */}
       <div className="px-4 py-4">
+        {/* Airport Trips Banner */}
+        {user?.home_address && (
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 mb-4 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="font-bold text-lg">✈️ Airport Trips</h3>
+                <p className="text-blue-100 text-sm">Near your home location</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAirportTrips(!showAirportTrips);
+                  if (!showAirportTrips) fetchAirportTrips();
+                }}
+                className="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg text-sm font-medium"
+              >
+                {showAirportTrips ? 'Show All' : 'View Airport'}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-            <div className="text-lg font-bold text-gray-900">{trips.length}</div>
-            <div className="text-xs text-gray-500">Available</div>
+            <div className="text-lg font-bold text-gray-900">
+              {showAirportTrips ? airportTrips.length : trips.length}
+            </div>
+            <div className="text-xs text-gray-500">
+              {showAirportTrips ? 'Airport' : 'Available'}
+            </div>
           </div>
           <div className="bg-white rounded-xl p-3 text-center shadow-sm">
             <div className="text-lg font-bold text-blue-600">{userTrips.created_trips?.length || 0}</div>
@@ -916,10 +941,11 @@ function App() {
         {/* Trips Section */}
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-gray-900">
-            {tripType === 'taxi' ? 'Taxi' : 'Car'} Trips
+            {showAirportTrips ? '✈️ Airport Trips' : 
+             tripType === 'taxi' ? 'Taxi' : 'Car'} Trips
           </h2>
           <button
-            onClick={fetchTrips}
+            onClick={showAirportTrips ? fetchAirportTrips : fetchTrips}
             disabled={loading}
             className="text-red-600 text-sm font-medium"
           >
@@ -927,23 +953,45 @@ function App() {
           </button>
         </div>
         
-        {trips.length === 0 ? (
+        {/* Home Address Info */}
+        {showAirportTrips && user?.home_address && (
+          <div className="bg-green-50 rounded-xl p-3 mb-4">
+            <div className="flex items-center space-x-2">
+              <span className="text-green-600">🏠</span>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-800">Your Home</p>
+                <p className="text-xs text-green-600 truncate">{user.home_address.address}</p>
+              </div>
+              <span className="text-xs text-green-600 font-medium">Sorted by distance</span>
+            </div>
+          </div>
+        )}
+        
+        {(showAirportTrips ? airportTrips : trips).length === 0 ? (
           <div className="bg-white rounded-xl p-8 text-center shadow-sm">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">{tripType === 'taxi' ? '🚕' : '🚗'}</span>
+              <span className="text-2xl">
+                {showAirportTrips ? '✈️' : tripType === 'taxi' ? '🚕' : '🚗'}
+              </span>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No trips yet</h3>
-            <p className="text-gray-500 text-sm mb-4">Be the first to create a trip</p>
-            <button
-              onClick={() => setCurrentView('create-trip')}
-              className="bg-red-600 text-white px-6 py-3 rounded-xl font-medium"
-            >
-              Create Trip
-            </button>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {showAirportTrips ? 'No airport trips found' : 'No trips yet'}
+            </h3>
+            <p className="text-gray-500 text-sm mb-4">
+              {showAirportTrips ? 'Airport trips will appear here when available' : 'Be the first to create a trip'}
+            </p>
+            {!showAirportTrips && (
+              <button
+                onClick={() => setCurrentView('create-trip')}
+                className="bg-red-600 text-white px-6 py-3 rounded-xl font-medium"
+              >
+                Create Trip
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-3 pb-20">
-            {trips.map((trip) => (
+            {(showAirportTrips ? airportTrips : trips).map((trip) => (
               <div
                 key={trip.id}
                 className="bg-white rounded-xl p-4 shadow-sm border border-gray-100"
@@ -952,6 +1000,9 @@ function App() {
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-1">
+                      {showAirportTrips && (
+                        <span className="text-blue-500 text-sm">✈️</span>
+                      )}
                       <h3 className="font-semibold text-gray-900 text-sm truncate">
                         {trip.origin.address.split(',')[0]}
                       </h3>
@@ -963,6 +1014,11 @@ function App() {
                     <div className="flex items-center space-x-4 text-xs text-gray-500 mb-2">
                       <span>{formatDateTime(trip.departure_time)}</span>
                       <span>{trip.creator_name}</span>
+                      {trip.distance_from_home && (
+                        <span className="text-green-600">
+                          📍 {formatDistance(trip.distance_from_home)} from home
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-red-600">{formatCurrency(trip.price_per_person)}</span>
