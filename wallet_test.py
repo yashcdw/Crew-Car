@@ -188,7 +188,7 @@ class WalletFunctionalityTest(unittest.TestCase):
         self.assertIn("Insufficient wallet balance", data["detail"])
         print("✅ Trip booking correctly rejected due to insufficient wallet balance")
 
-    def test_06_get_wallet_transactions_empty(self):
+    def test_07_get_wallet_transactions_empty(self):
         """Test wallet transaction history (should be empty initially)"""
         print("\n6. Testing wallet transaction history (empty)...")
         response = self.api_call("/api/wallet/transactions", token=WalletFunctionalityTest.token)
