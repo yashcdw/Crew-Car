@@ -230,7 +230,8 @@ function App() {
         headers: { Authorization: `Bearer ${authToken}` }
       });
       setUser(data);
-      setCurrentView('home');
+      setTripType('taxi'); // Default to taxi sharing
+      setCurrentView('dashboard');
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
       logout();
