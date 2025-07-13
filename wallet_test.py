@@ -148,18 +148,18 @@ class WalletFunctionalityTest(unittest.TestCase):
         print("\n5. Testing trip booking with wallet payment (insufficient balance)...")
         
         # First, verify current wallet balance is 0
-        wallet_response = self.api_call("/api/wallet", token=self.token)
+        wallet_response = self.api_call("/api/wallet", token=WalletFunctionalityTest.token)
         wallet_data = wallet_response.json()
         print(f"   Current wallet balance: {wallet_data['balance']} TRY")
         print(f"   Trip cost: {self.test_trip['price_per_person']} TRY")
         
         # Try to book with wallet payment
         booking_data = {
-            "trip_id": self.trip_id,
+            "trip_id": WalletFunctionalityTest.trip_id,
             "payment_method": "wallet"
         }
         
-        response = self.api_call(f"/api/trips/{self.trip_id}/book", method="POST", data=booking_data, token=self.token)
+        response = self.api_call(f"/api/trips/{WalletFunctionalityTest.trip_id}/book", method="POST", data=booking_data, token=WalletFunctionalityTest.token)
         self.assertEqual(response.status_code, 400)
         data = response.json()
         self.assertIn("detail", data)
