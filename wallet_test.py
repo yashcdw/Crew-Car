@@ -69,16 +69,16 @@ class WalletFunctionalityTest(unittest.TestCase):
         self.assertIn("user", data)
         
         # Save token and user_id for subsequent tests
-        self.token = data["token"]
-        self.user_id = data["user"]["id"]
-        print(f"✅ User registration passed - User ID: {self.user_id}")
+        WalletFunctionalityTest.token = data["token"]
+        WalletFunctionalityTest.user_id = data["user"]["id"]
+        print(f"✅ User registration passed - User ID: {WalletFunctionalityTest.user_id}")
         
         # Now check if wallet was automatically created
         print("   Checking if wallet was automatically created...")
-        wallet_response = self.api_call("/api/wallet", token=self.token)
+        wallet_response = self.api_call("/api/wallet", token=WalletFunctionalityTest.token)
         self.assertEqual(wallet_response.status_code, 200)
         wallet_data = wallet_response.json()
-        self.assertEqual(wallet_data["user_id"], self.user_id)
+        self.assertEqual(wallet_data["user_id"], WalletFunctionalityTest.user_id)
         self.assertEqual(wallet_data["balance"], 0.0)
         self.assertEqual(wallet_data["currency"], "try")
         self.assertIn("last_updated", wallet_data)
