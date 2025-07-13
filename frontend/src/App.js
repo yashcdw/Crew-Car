@@ -884,13 +884,15 @@ function App() {
         </div>
       </nav>
       
-      <div className="bg-white border-b py-2">
-        <div className="container mx-auto px-6 text-center">
-          {tripType === 'taxi' ? (
-            <p className="text-gray-600">Professional taxi sharing - Split costs with fellow Turkish Airlines personnel</p>
-          ) : (
-            <p className="text-gray-600">Share rides with personnel already traveling in your direction</p>
-          )}
+      <div className="bg-white border-b border-gray-100">
+        <div className="container mx-auto px-6 py-3">
+          <p className="text-gray-600 text-center text-sm">
+            {tripType === 'taxi' ? (
+              'Professional taxi sharing - Split costs with fellow personnel'
+            ) : (
+              'Share rides with colleagues traveling in your direction'
+            )}
+          </p>
         </div>
       </div>
       
