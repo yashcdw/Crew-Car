@@ -200,9 +200,9 @@ class WalletFunctionalityTest(unittest.TestCase):
         self.assertEqual(len(data["transactions"]), 0)
         print("✅ Wallet transaction history is empty as expected")
 
-    def test_07_unauthorized_wallet_access(self):
+    def test_08_unauthorized_wallet_access(self):
         """Test wallet access without authentication"""
-        print("\n7. Testing unauthorized wallet access...")
+        print("\n8. Testing unauthorized wallet access...")
         
         # Test wallet balance without token
         response = self.api_call("/api/wallet")
