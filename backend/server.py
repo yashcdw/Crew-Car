@@ -535,10 +535,28 @@ async def get_user_trips(current_user: dict = Depends(get_current_user)):
     created_list = []
     for trip in created_trips:
         bookings = list(bookings_collection.find({"trip_id": trip["id"], "status": "confirmed"}))
+        
+        # Handle both old string format and new Location format
+        try:
+            if isinstance(trip["origin"], str):
+                origin = Location(address=trip["origin"], coordinates={"lat": 0, "lng": 0})
+            else:
+                origin = Location(**trip["origin"])
+        except Exception:
+            origin = Location(address=str(trip["origin"]), coordinates={"lat": 0, "lng": 0})
+        
+        try:
+            if isinstance(trip["destination"], str):
+                destination = Location(address=trip["destination"], coordinates={"lat": 0, "lng": 0})
+            else:
+                destination = Location(**trip["destination"])
+        except Exception:
+            destination = Location(address=str(trip["destination"]), coordinates={"lat": 0, "lng": 0})
+        
         created_list.append({
             "id": trip["id"],
-            "origin": Location(**trip["origin"]),
-            "destination": Location(**trip["destination"]),
+            "origin": origin,
+            "destination": destination,
             "departure_time": trip["departure_time"],
             "available_seats": trip["available_seats"] - len(bookings),
             "price_per_person": trip["price_per_person"],
@@ -552,11 +570,29 @@ async def get_user_trips(current_user: dict = Depends(get_current_user)):
     booked_list = []
     for trip in booked_trips:
         bookings = list(bookings_collection.find({"trip_id": trip["id"], "status": "confirmed"}))
+        
+        # Handle both old string format and new Location format
+        try:
+            if isinstance(trip["origin"], str):
+                origin = Location(address=trip["origin"], coordinates={"lat": 0, "lng": 0})
+            else:
+                origin = Location(**trip["origin"])
+        except Exception:
+            origin = Location(address=str(trip["origin"]), coordinates={"lat": 0, "lng": 0})
+        
+        try:
+            if isinstance(trip["destination"], str):
+                destination = Location(address=trip["destination"], coordinates={"lat": 0, "lng": 0})
+            else:
+                destination = Location(**trip["destination"])
+        except Exception:
+            destination = Location(address=str(trip["destination"]), coordinates={"lat": 0, "lng": 0})
+        
         booked_list.append({
             "id": trip["id"],
             "creator_name": trip["creator_name"],
-            "origin": Location(**trip["origin"]),
-            "destination": Location(**trip["destination"]),
+            "origin": origin,
+            "destination": destination,
             "departure_time": trip["departure_time"],
             "price_per_person": trip["price_per_person"],
             "status": trip["status"],
