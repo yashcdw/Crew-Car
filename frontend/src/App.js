@@ -1040,11 +1040,17 @@ function App() {
                               e.stopPropagation();
                               bookTrip(trip.id);
                             }}
-                            disabled={loading || wallet.balance < trip.price_per_person}
+                            disabled={loading || (trip.trip_type === 'personal_car' && wallet.balance < trip.price_per_person)}
                             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md disabled:opacity-50"
-                            title={wallet.balance < trip.price_per_person ? 'Insufficient wallet balance' : 'Book Trip'}
+                            title={
+                              trip.trip_type === 'personal_car' && wallet.balance < trip.price_per_person 
+                                ? 'Insufficient wallet balance for personal car trip' 
+                                : trip.trip_type === 'personal_car' 
+                                  ? 'Request to join (Wallet payment required)' 
+                                  : 'Book trip (Choose payment method)'
+                            }
                           >
-                            {trip.trip_type === 'personal_car' ? 'Request Join' : 'Book Trip'}
+                            {trip.trip_type === 'personal_car' ? 'Request Join (Wallet)' : 'Book Trip'}
                           </button>
                         )}
                         {trip.is_creator && (
@@ -1057,9 +1063,14 @@ function App() {
                             Full
                           </span>
                         )}
-                        {wallet.balance < trip.price_per_person && !trip.is_creator && (
+                        {trip.trip_type === 'personal_car' && wallet.balance < trip.price_per_person && !trip.is_creator && (
                           <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs">
-                            Low Balance
+                            Low Wallet Balance
+                          </span>
+                        )}
+                        {trip.trip_type !== 'personal_car' && (
+                          <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs">
+                            Cash/Card/Wallet
                           </span>
                         )}
                       </div>
