@@ -346,9 +346,78 @@ def check_rider_compatibility(trip_origin: Location, trip_destination: Location,
         return {"compatible": False, "reason": "Error calculating compatibility"}
 
 # API Routes
-@app.get("/api/health")
-async def health_check():
-    return {"status": "healthy", "message": "Turkish Airlines Car Pooling API is running"}
+# WebSocket endpoint
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    connection_id = await manager.connect(websocket, user_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            message_data = json.loads(data)
+            
+            # Handle different types of real-time messages
+            if message_data["type"] == "location_update":
+                # Store live location
+                location_update = {
+                    "trip_id": message_data["trip_id"],
+                    "user_id": user_id,
+                    "latitude": message_data["latitude"],
+                    "longitude": message_data["longitude"],
+                    "heading": message_data.get("heading"),
+                    "speed": message_data.get("speed"),
+                    "timestamp": datetime.utcnow()
+                }
+                live_tracking_collection.replace_one(
+                    {"trip_id": message_data["trip_id"], "user_id": user_id},
+                    location_update,
+                    upsert=True
+                )
+                
+                # Broadcast to trip participants
+                await manager.broadcast_to_trip(
+                    json.dumps({
+                        "type": "location_update",
+                        "user_id": user_id,
+                        "latitude": message_data["latitude"],
+                        "longitude": message_data["longitude"],
+                        "heading": message_data.get("heading"),
+                        "speed": message_data.get("speed")
+                    }),
+                    message_data["trip_id"]
+                )
+            
+            elif message_data["type"] == "chat_message":
+                # Handle chat messages
+                user = users_collection.find_one({"id": user_id})
+                message = {
+                    "id": str(uuid.uuid4()),
+                    "trip_id": message_data["trip_id"],
+                    "sender_id": user_id,
+                    "sender_name": user["name"] if user else "Unknown",
+                    "content": message_data["content"],
+                    "message_type": message_data.get("message_type", "text"),
+                    "timestamp": datetime.utcnow()
+                }
+                messages_collection.insert_one(message)
+                
+                # Broadcast to trip participants
+                await manager.broadcast_to_trip(
+                    json.dumps({
+                        "type": "chat_message",
+                        "message": {
+                            "id": message["id"],
+                            "sender_id": user_id,
+                            "sender_name": message["sender_name"],
+                            "content": message["content"],
+                            "message_type": message["message_type"],
+                            "timestamp": message["timestamp"].isoformat()
+                        }
+                    }),
+                    message_data["trip_id"]
+                )
+    
+    except WebSocketDisconnect:
+        manager.disconnect(connection_id, user_id)
 
 @app.post("/api/auth/register")
 async def register(user_data: UserCreate):
