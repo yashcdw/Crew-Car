@@ -8,6 +8,8 @@ class WalletFunctionalityTest(unittest.TestCase):
     token = None
     user_id = None
     trip_id = None
+    token2 = None
+    user_id2 = None
     
     def setUp(self):
         self.base_url = "https://edd6d56b-2a86-4bf5-b3c7-2539850efc2a.preview.emergentagent.com"
