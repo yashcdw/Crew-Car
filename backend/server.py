@@ -1234,10 +1234,16 @@ async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dic
     if current_bookings >= trip["available_seats"]:
         raise HTTPException(status_code=400, detail="No available seats")
     
-    # Handle payment
+    # Determine trip type and validate payment method
+    trip_type = trip.get("trip_type", "taxi")  # Default to taxi for legacy trips
     trip_cost = trip["price_per_person"]
     
-    if booking_data.payment_method == "wallet":
+    # Validate payment method based on trip type
+    if trip_type == "personal_car":
+        # Personal car trips only accept wallet payments
+        if booking_data.payment_method != "wallet":
+            raise HTTPException(status_code=400, detail="Personal car trips only accept wallet payments")
+        
         # Check wallet balance and deduct payment
         wallet = get_or_create_wallet(current_user["id"])
         if wallet["balance"] < trip_cost:
@@ -1251,7 +1257,7 @@ async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dic
             user_id=current_user["id"],
             transaction_type="payment",
             amount=trip_cost,
-            description=f"Trip booking - {trip['origin']['address']} to {trip['destination']['address']}",
+            description=f"Personal car trip booking - {trip['origin']['address']} to {trip['destination']['address']}",
             status="completed"
         )
         
@@ -1261,9 +1267,44 @@ async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dic
             user_id=trip["creator_id"],
             transaction_type="topup",
             amount=trip_cost,
-            description=f"Trip payment received - {trip['origin']['address']} to {trip['destination']['address']}",
+            description=f"Personal car trip payment received - {trip['origin']['address']} to {trip['destination']['address']}",
             status="completed"
         )
+        
+    elif trip_type == "taxi":
+        # Taxi trips accept cash, card, or wallet payments
+        if booking_data.payment_method not in ["cash", "card", "wallet"]:
+            raise HTTPException(status_code=400, detail="Invalid payment method. Taxi trips accept: cash, card, or wallet")
+        
+        if booking_data.payment_method == "wallet":
+            # Check wallet balance and deduct payment
+            wallet = get_or_create_wallet(current_user["id"])
+            if wallet["balance"] < trip_cost:
+                raise HTTPException(status_code=400, detail="Insufficient wallet balance")
+            
+            # Deduct amount from wallet
+            update_wallet_balance(current_user["id"], trip_cost, "payment")
+            
+            # Create payment transaction
+            create_wallet_transaction(
+                user_id=current_user["id"],
+                transaction_type="payment",
+                amount=trip_cost,
+                description=f"Taxi trip booking - {trip['origin']['address']} to {trip['destination']['address']}",
+                status="completed"
+            )
+            
+            # Credit to trip creator's wallet
+            update_wallet_balance(trip["creator_id"], trip_cost, "topup")
+            create_wallet_transaction(
+                user_id=trip["creator_id"],
+                transaction_type="topup",
+                amount=trip_cost,
+                description=f"Taxi trip payment received - {trip['origin']['address']} to {trip['destination']['address']}",
+                status="completed"
+            )
+        # For cash and card payments, no immediate wallet transaction is needed
+        # The transaction will be handled outside the app (cash on ride, card payment through taxi terminal)
     
     # Calculate additional time for rider pickup
     additional_time = 0
@@ -1302,7 +1343,8 @@ async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dic
         "additional_time_minutes": additional_time,
         "status": "confirmed",
         "payment_method": booking_data.payment_method,
-        "amount_paid": trip_cost
+        "amount_paid": trip_cost,
+        "trip_type": trip_type
     }
     
     bookings_collection.insert_one(booking)
@@ -1312,7 +1354,7 @@ async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dic
         json.dumps({
             "type": "booking_notification",
             "trip_id": trip_id,
-            "message": f"New booking from {current_user['name']}",
+            "message": f"New booking from {current_user['name']} (Payment: {booking_data.payment_method})",
             "booking_id": booking_id
         }),
         trip["creator_id"]
@@ -1322,7 +1364,8 @@ async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dic
         "message": "Trip booked successfully",
         "booking_id": booking_id,
         "payment_method": booking_data.payment_method,
-        "amount_paid": trip_cost
+        "amount_paid": trip_cost,
+        "trip_type": trip_type
     }
 
 @app.get("/api/user/trips")
