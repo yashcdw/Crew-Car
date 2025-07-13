@@ -275,6 +275,15 @@ function App() {
     }
   };
 
+  const fetchWalletTransactions = async () => {
+    try {
+      const data = await apiCall('/api/wallet/transactions');
+      setWalletTransactions(data.transactions || []);
+    } catch (error) {
+      console.error('Failed to fetch wallet transactions:', error);
+    }
+  };
+
   const fetchAirportTrips = async () => {
     try {
       setLoading(true);
