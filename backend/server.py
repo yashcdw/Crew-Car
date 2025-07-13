@@ -156,6 +156,12 @@ class Location(BaseModel):
     coordinates: Dict[str, float]  # {lat: float, lng: float}
     place_id: Optional[str] = None
 
+class BusStop(BaseModel):
+    id: str
+    name: str
+    location: Location
+    description: Optional[str] = None
+
 class TripCreate(BaseModel):
     origin: Location
     destination: Location
