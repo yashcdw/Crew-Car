@@ -395,7 +395,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Payment method differentiation testing completed successfully"
+    - "Location and airport features testing completed successfully"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
