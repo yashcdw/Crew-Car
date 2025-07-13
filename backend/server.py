@@ -39,7 +39,12 @@ db = client.carpooling_db
 # Collections
 users_collection = db.users
 trips_collection = db.trips
+personal_car_trips_collection = db.personal_car_trips
 bookings_collection = db.bookings
+join_requests_collection = db.join_requests
+messages_collection = db.messages
+live_tracking_collection = db.live_tracking
+bus_stops_collection = db.bus_stops
 
 # JWT Secret
 JWT_SECRET = "your-secret-key-here"
@@ -53,8 +58,77 @@ if GOOGLE_MAPS_API_KEY:
 gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY) if GOOGLE_MAPS_API_KEY else None
 print(f"Google Maps client initialized: {'Yes' if gmaps else 'No'}")
 
+# Twilio client
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
+TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER')
+twilio_client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN else None
+
+# Redis client for real-time features
+try:
+    redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+    redis_client.ping()
+    print("Redis client initialized: Yes")
+except:
+    redis_client = None
+    print("Redis client initialized: No")
+
 # Security
 security = HTTPBearer()
+
+# Helper function for WebSocket
+async def get_trip_participants(trip_id: str) -> List[str]:
+    """Get all user IDs participating in a trip (creator + riders)"""
+    trip = await trips_collection.find_one({"id": trip_id})
+    if not trip:
+        return []
+    
+    # Add trip creator
+    participants = [trip["creator_id"]]
+    
+    # Add all confirmed riders
+    bookings = await bookings_collection.find({"trip_id": trip_id, "status": "confirmed"}).to_list(length=None)
+    participants.extend([booking["user_id"] for booking in bookings])
+    
+    return list(set(participants))  # Remove duplicates
+
+# WebSocket connection manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, WebSocket] = {}
+        self.user_connections: Dict[str, str] = {}  # user_id -> connection_id
+
+    async def connect(self, websocket: WebSocket, user_id: str):
+        await websocket.accept()
+        connection_id = str(uuid.uuid4())
+        self.active_connections[connection_id] = websocket
+        self.user_connections[user_id] = connection_id
+        return connection_id
+
+    def disconnect(self, connection_id: str, user_id: str):
+        if connection_id in self.active_connections:
+            del self.active_connections[connection_id]
+        if user_id in self.user_connections:
+            del self.user_connections[user_id]
+
+    async def send_personal_message(self, message: str, user_id: str):
+        if user_id in self.user_connections:
+            connection_id = self.user_connections[user_id]
+            if connection_id in self.active_connections:
+                websocket = self.active_connections[connection_id]
+                try:
+                    await websocket.send_text(message)
+                except:
+                    # Connection might be closed, clean up
+                    self.disconnect(connection_id, user_id)
+
+    async def broadcast_to_trip(self, message: str, trip_id: str):
+        # Get all users in this trip
+        trip_users = await get_trip_participants(trip_id)
+        for user_id in trip_users:
+            await self.send_personal_message(message, user_id)
+
+manager = ConnectionManager()
 
 # Pydantic models
 class UserCreate(BaseModel):
