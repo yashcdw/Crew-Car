@@ -92,112 +92,72 @@ const LocationAutocomplete = ({ onPlaceSelect, placeholder, value }) => {
   );
 };
 
-// Map Component with Live Tracking
-const TripMap = ({ trips, selectedTrip, onTripSelect, userLocation, liveLocations = [] }) => {
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries
-  });
-
+// Trip Map Component
+const TripMap = ({ trips, selectedTrip, onTripSelect, userLocation }) => {
+  const [directions, setDirections] = useState(null);
   const [map, setMap] = useState(null);
-  const [directionsResponse, setDirectionsResponse] = useState(null);
 
-  const onLoad = useCallback((map) => {
-    setMap(map);
-  }, []);
+  const mapContainerStyle = {
+    width: '100%',
+    height: '400px'
+  };
 
-  const onUnmount = useCallback(() => {
-    setMap(null);
-  }, []);
+  const center = userLocation || { lat: 41.0082, lng: 28.9784 }; // Default to Istanbul
 
   useEffect(() => {
-    if (selectedTrip && selectedTrip.route_polyline && window.google) {
+    if (selectedTrip && selectedTrip.origin && selectedTrip.destination) {
       const directionsService = new window.google.maps.DirectionsService();
       
       directionsService.route({
-        origin: new window.google.maps.LatLng(
-          selectedTrip.origin.coordinates.lat,
-          selectedTrip.origin.coordinates.lng
-        ),
-        destination: new window.google.maps.LatLng(
-          selectedTrip.destination.coordinates.lat,
-          selectedTrip.destination.coordinates.lng
-        ),
-        travelMode: window.google.maps.TravelMode.DRIVING,
+        origin: selectedTrip.origin.coordinates,
+        destination: selectedTrip.destination.coordinates,
+        travelMode: window.google.maps.TravelMode.DRIVING
       }, (result, status) => {
         if (status === window.google.maps.DirectionsStatus.OK) {
-          setDirectionsResponse(result);
+          setDirections(result);
         }
       });
-    } else {
-      setDirectionsResponse(null);
     }
   }, [selectedTrip]);
 
-  if (!isLoaded) return <div>Loading Maps...</div>;
+  const onLoad = (map) => {
+    setMap(map);
+  };
 
   return (
-    <GoogleMap
-      mapContainerStyle={mapContainerStyle}
-      center={center}
-      zoom={10}
-      onLoad={onLoad}
-      onUnmount={onUnmount}
-    >
-      {userLocation && (
-        <Marker
-          position={userLocation}
-          icon={{
-            url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-            scaledSize: new window.google.maps.Size(40, 40)
-          }}
-          title="Your Location"
-        />
-      )}
-      
-      {trips.map((trip) => (
-        <Marker
-          key={trip.id}
-          position={trip.origin.coordinates}
-          onClick={() => onTripSelect(trip)}
-          icon={{
-            url: trip.trip_type === 'personal_car' 
-              ? 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
-              : 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-            scaledSize: new window.google.maps.Size(35, 35)
-          }}
-          title={`${trip.origin.address} → ${trip.destination.address}`}
-        />
-      ))}
-      
-      {/* Live tracking markers */}
-      {liveLocations.map((location) => (
-        <Marker
-          key={location.user_id}
-          position={{ lat: location.latitude, lng: location.longitude }}
-          icon={{
-            url: 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png',
-            scaledSize: new window.google.maps.Size(30, 30)
-          }}
-          title={`${location.user_name} (Live)`}
-        />
-      ))}
-      
-      {directionsResponse && (
-        <DirectionsRenderer 
-          directions={directionsResponse}
-          options={{
-            polylineOptions: {
-              strokeColor: '#dc2626',
-              strokeWeight: 4
-            }
-          }}
-        />
-      )}
-    </GoogleMap>
+    <div className="h-96">
+      <GoogleMap
+        mapContainerStyle={mapContainerStyle}
+        center={center}
+        zoom={10}
+        onLoad={onLoad}
+      >
+        {directions && <DirectionsRenderer directions={directions} />}
+        
+        {trips.map((trip) => (
+          <Marker
+            key={trip.id}
+            position={trip.origin.coordinates}
+            onClick={() => onTripSelect(trip)}
+            icon={{
+              url: selectedTrip?.id === trip.id ? 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+              scaledSize: new window.google.maps.Size(40, 40)
+            }}
+          />
+        ))}
+        
+        {userLocation && (
+          <Marker
+            position={userLocation}
+            icon={{
+              url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+              scaledSize: new window.google.maps.Size(40, 40)
+            }}
+          />
+        )}
+      </GoogleMap>
+    </div>
   );
-};
 
 // Chat Component
 const ChatComponent = ({ tripId, currentUser, messages, onSendMessage }) => {
