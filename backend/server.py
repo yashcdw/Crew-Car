@@ -25,7 +25,7 @@ app.add_middleware(
 )
 
 # MongoDB connection
-MONGO_URL = os.environ.get('MONGO_URL', 'mongodb://localhost:27017/')
+MONGO_URL = os.environ.get('MONGO_URL', 'mongodb://localhost:27017/').strip('"')
 client = MongoClient(MONGO_URL)
 db = client.carpooling_db
 
@@ -39,7 +39,12 @@ JWT_SECRET = "your-secret-key-here"
 
 # Google Maps client
 GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
+print(f"Google Maps API Key loaded: {'Yes' if GOOGLE_MAPS_API_KEY else 'No'}")
+if GOOGLE_MAPS_API_KEY:
+    print(f"API Key length: {len(GOOGLE_MAPS_API_KEY)}")
+    
 gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY) if GOOGLE_MAPS_API_KEY else None
+print(f"Google Maps client initialized: {'Yes' if gmaps else 'No'}")
 
 # Security
 security = HTTPBearer()
