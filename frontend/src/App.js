@@ -962,55 +962,88 @@ function App() {
 
   const renderDashboard = () => (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-red-600 text-white p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold">Turkish Airlines</h1>
-            <div className="bg-red-700 rounded-lg p-1 flex">
-              <button
-                onClick={() => setTripType('taxi')}
-                className={`px-3 py-1 rounded text-sm ${
-                  tripType === 'taxi' ? 'bg-white text-red-600' : 'text-white'
-                }`}
-              >
-                🚕 Taxi
-              </button>
-              <button
-                onClick={() => setTripType('personal_car')}
-                className={`px-3 py-1 rounded text-sm ${
-                  tripType === 'personal_car' ? 'bg-white text-red-600' : 'text-white'
-                }`}
-              >
-                🚗 Personnel
-              </button>
+      <nav className="bg-white shadow-sm border-b border-gray-200">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex justify-between items-center">
+            {/* Left side - Logo and Navigation */}
+            <div className="flex items-center space-x-8">
+              <h1 className="text-2xl font-bold text-red-600">Turkish Airlines</h1>
+              
+              {/* Trip Type Toggle */}
+              <div className="flex bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setTripType('taxi')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    tripType === 'taxi' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Taxi Sharing
+                </button>
+                <button
+                  onClick={() => setTripType('personal_car')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    tripType === 'personal_car' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Personnel Car
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span>Wallet: {formatCurrency(wallet.balance)}</span>
-            <button
-              onClick={() => setCurrentView('wallet')}
-              className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-md"
-            >
-              💰 Wallet
-            </button>
-            <button
-              onClick={() => setCurrentView('create-trip')}
-              className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-md"
-            >
-              Create Trip
-            </button>
-            <button
-              onClick={() => setCurrentView('my-trips')}
-              className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-md"
-            >
-              My Trips
-            </button>
-            <button
-              onClick={() => setCurrentView('home')}
-              className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-md"
-            >
-              Home
-            </button>
+            
+            {/* Right side - User info and actions */}
+            <div className="flex items-center space-x-6">
+              {/* User Info */}
+              <div className="flex items-center space-x-4">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                  <p className="text-xs text-gray-500">{user?.department}</p>
+                </div>
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                  <span className="text-red-600 font-medium text-sm">
+                    {user?.name?.charAt(0)?.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Wallet */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setCurrentView('wallet')}
+                  className="flex items-center space-x-2 bg-gray-50 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <span className="text-sm font-medium text-gray-700">{formatCurrency(wallet.balance)}</span>
+                </button>
+              </div>
+              
+              {/* Action Menu */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setCurrentView('create-trip')}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Create Trip
+                </button>
+                <button
+                  onClick={() => setCurrentView('my-trips')}
+                  className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium"
+                >
+                  My Trips
+                </button>
+                <button
+                  onClick={logout}
+                  className="text-gray-400 hover:text-gray-600 px-3 py-2 text-sm"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </nav>
