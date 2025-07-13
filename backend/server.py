@@ -448,22 +448,77 @@ async def create_trip(trip_data: TripCreate, current_user: dict = Depends(get_cu
     
     return {"message": "Trip created successfully", "trip_id": trip_id}
 
+def find_nearest_bus_stops(location: Location, max_distance_km: float = 2.0) -> List[BusStop]:
+    """Find bus stops within specified distance of a location"""
+    if not gmaps:
+        return []
+    
+    try:
+        # Get all bus stops from database
+        all_bus_stops = list(bus_stops_collection.find())
+        nearby_stops = []
+        
+        for stop in all_bus_stops:
+            # Calculate distance between location and bus stop
+            result = gmaps.distance_matrix(
+                origins=[f"{location.coordinates['lat']},{location.coordinates['lng']}"],
+                destinations=[f"{stop['location']['coordinates']['lat']},{stop['location']['coordinates']['lng']}"],
+                mode="walking",
+                units="metric"
+            )
+            
+            if result["rows"][0]["elements"][0]["status"] == "OK":
+                distance_km = result["rows"][0]["elements"][0]["distance"]["value"] / 1000
+                if distance_km <= max_distance_km:
+                    stop_obj = BusStop(
+                        id=stop["id"],
+                        name=stop["name"],
+                        location=Location(**stop["location"]),
+                        description=stop.get("description")
+                    )
+                    nearby_stops.append((distance_km, stop_obj))
+        
+        # Sort by distance and return bus stop objects
+        nearby_stops.sort(key=lambda x: x[0])
+        return [stop for _, stop in nearby_stops]
+    except Exception as e:
+        print(f"Error finding nearest bus stops: {e}")
+        return []
+
 @app.get("/api/trips")
-async def get_available_trips(current_user: dict = Depends(get_current_user)):
-    trips = list(trips_collection.find({"status": "active"}))
+async def get_available_trips(trip_type: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    """Get available trips - both taxi and personal car"""
+    all_trips = []
+    
+    # Get taxi trips
+    if not trip_type or trip_type == "taxi":
+        taxi_trips = list(trips_collection.find({"status": "active"}))
+        for trip in taxi_trips:
+            trip["trip_type"] = "taxi"
+        all_trips.extend(taxi_trips)
+    
+    # Get personal car trips
+    if not trip_type or trip_type == "personal_car":
+        personal_trips = list(personal_car_trips_collection.find({"status": "active"}))
+        for trip in personal_trips:
+            trip["trip_type"] = "personal_car"
+        all_trips.extend(personal_trips)
     
     trip_list = []
-    for trip in trips:
-        # Get bookings for this trip
-        bookings = list(bookings_collection.find({"trip_id": trip["id"], "status": "confirmed"}))
+    for trip in all_trips:
+        # Get bookings/requests for this trip
+        if trip["trip_type"] == "taxi":
+            bookings = list(bookings_collection.find({"trip_id": trip["id"], "status": "confirmed"}))
+            current_riders = len(bookings)
+        else:
+            join_requests = list(join_requests_collection.find({"trip_id": trip["id"], "status": "approved"}))
+            current_riders = len(join_requests)
         
         # Handle both old string format and new Location format
         try:
             if isinstance(trip["origin"], str):
-                # Old format - create Location object with address only
                 origin = Location(address=trip["origin"], coordinates={"lat": 0, "lng": 0})
             else:
-                # New format - convert dict to Location object
                 origin = Location(**trip["origin"])
         except Exception as e:
             print(f"Error parsing origin: {e}")
@@ -471,10 +526,8 @@ async def get_available_trips(current_user: dict = Depends(get_current_user)):
         
         try:
             if isinstance(trip["destination"], str):
-                # Old format - create Location object with address only
                 destination = Location(address=trip["destination"], coordinates={"lat": 0, "lng": 0})
             else:
-                # New format - convert dict to Location object
                 destination = Location(**trip["destination"])
         except Exception as e:
             print(f"Error parsing destination: {e}")
@@ -484,11 +537,12 @@ async def get_available_trips(current_user: dict = Depends(get_current_user)):
             "id": trip["id"],
             "creator_id": trip["creator_id"],
             "creator_name": trip["creator_name"],
+            "trip_type": trip["trip_type"],
             "origin": origin,
             "destination": destination,
             "departure_time": trip["departure_time"],
-            "available_seats": trip["available_seats"] - len(bookings),
-            "max_riders": trip["max_riders"],
+            "available_seats": trip["available_seats"] - current_riders,
+            "max_riders": trip.get("max_riders", 3),
             "price_per_person": trip["price_per_person"],
             "notes": trip.get("notes", ""),
             "status": trip["status"],
@@ -496,12 +550,151 @@ async def get_available_trips(current_user: dict = Depends(get_current_user)):
             "distance_km": trip.get("distance_km", 0),
             "duration_minutes": trip.get("duration_minutes", 0),
             "route_polyline": trip.get("route_polyline", ""),
-            "bookings": len(bookings),
-            "is_creator": trip["creator_id"] == current_user["id"]
+            "current_riders": current_riders,
+            "is_creator": trip["creator_id"] == current_user["id"],
+            # Personal car specific fields
+            "car_model": trip.get("car_model"),
+            "car_color": trip.get("car_color"),
+            "license_plate": trip.get("license_plate"),
+            "nearest_bus_stop": trip.get("nearest_bus_stop")
         }
         trip_list.append(trip_data)
     
+    # Sort by departure time
+    trip_list.sort(key=lambda x: x["departure_time"])
+    
     return {"trips": trip_list}
+
+# Personal car trips (new functionality)
+@app.post("/api/trips/personal-car")
+async def create_personal_car_trip(trip_data: PersonalCarTripCreate, current_user: dict = Depends(get_current_user)):
+    trip_id = str(uuid.uuid4())
+    
+    # Calculate route information
+    route_info = calculate_trip_route(trip_data.origin, trip_data.destination)
+    
+    # Find nearest bus stops to origin
+    nearest_bus_stops = find_nearest_bus_stops(trip_data.origin)
+    nearest_bus_stop = nearest_bus_stops[0] if nearest_bus_stops else None
+    
+    trip = {
+        "id": trip_id,
+        "creator_id": current_user["id"],
+        "creator_name": current_user["name"],
+        "trip_type": "personal_car",
+        "origin": trip_data.origin.dict(),
+        "destination": trip_data.destination.dict(),
+        "departure_time": trip_data.departure_time,
+        "available_seats": trip_data.available_seats,
+        "max_riders": trip_data.available_seats,
+        "price_per_person": trip_data.price_per_person,
+        "notes": trip_data.notes,
+        "status": "active",
+        "created_at": datetime.utcnow(),
+        "distance_km": route_info.get("distance_km", 0),
+        "duration_minutes": route_info.get("duration_minutes", 0),
+        "route_polyline": route_info.get("route_polyline", ""),
+        # Personal car specific fields
+        "car_model": trip_data.car_model,
+        "car_color": trip_data.car_color,
+        "license_plate": trip_data.license_plate,
+        "nearest_bus_stop": nearest_bus_stop.dict() if nearest_bus_stop else None
+    }
+    
+    personal_car_trips_collection.insert_one(trip)
+    
+    return {"message": "Personal car trip created successfully", "trip_id": trip_id}
+
+@app.post("/api/trips/{trip_id}/join-request")
+async def create_join_request(trip_id: str, request_data: JoinRequestCreate, current_user: dict = Depends(get_current_user)):
+    """Create a join request for personal car trips"""
+    trip = personal_car_trips_collection.find_one({"id": trip_id})
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    
+    if trip["creator_id"] == current_user["id"]:
+        raise HTTPException(status_code=400, detail="Cannot request to join your own trip")
+    
+    # Check if user already has a pending or approved request
+    existing_request = join_requests_collection.find_one({
+        "trip_id": trip_id,
+        "requester_id": current_user["id"],
+        "status": {"$in": ["pending", "approved"]}
+    })
+    
+    if existing_request:
+        raise HTTPException(status_code=400, detail="You already have a request for this trip")
+    
+    # Get bus stop if specified
+    pickup_bus_stop = None
+    if request_data.pickup_bus_stop_id:
+        bus_stop_data = bus_stops_collection.find_one({"id": request_data.pickup_bus_stop_id})
+        if bus_stop_data:
+            pickup_bus_stop = BusStop(**bus_stop_data)
+    
+    # Create join request
+    request_id = str(uuid.uuid4())
+    join_request = {
+        "id": request_id,
+        "trip_id": trip_id,
+        "requester_id": current_user["id"],
+        "requester_name": current_user["name"],
+        "pickup_bus_stop": pickup_bus_stop.dict() if pickup_bus_stop else None,
+        "message": request_data.message,
+        "status": "pending",
+        "created_at": datetime.utcnow()
+    }
+    
+    join_requests_collection.insert_one(join_request)
+    
+    # Send real-time notification to trip creator
+    await manager.send_personal_message(
+        json.dumps({
+            "type": "join_request",
+            "trip_id": trip_id,
+            "requester_name": current_user["name"],
+            "message": f"'{current_user['name']}' is requesting to tag along",
+            "request_id": request_id
+        }),
+        trip["creator_id"]
+    )
+    
+    return {"message": "Join request sent successfully", "request_id": request_id}
+
+@app.post("/api/join-requests/{request_id}/respond")
+async def respond_to_join_request(request_id: str, action: str, current_user: dict = Depends(get_current_user)):
+    """Approve or reject a join request"""
+    if action not in ["approve", "reject"]:
+        raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
+    
+    join_request = join_requests_collection.find_one({"id": request_id})
+    if not join_request:
+        raise HTTPException(status_code=404, detail="Join request not found")
+    
+    # Verify the current user is the trip creator
+    trip = personal_car_trips_collection.find_one({"id": join_request["trip_id"]})
+    if not trip or trip["creator_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized to respond to this request")
+    
+    # Update request status
+    new_status = "approved" if action == "approve" else "rejected"
+    join_requests_collection.update_one(
+        {"id": request_id},
+        {"$set": {"status": new_status, "responded_at": datetime.utcnow()}}
+    )
+    
+    # Send notification to requester
+    await manager.send_personal_message(
+        json.dumps({
+            "type": "join_request_response",
+            "trip_id": join_request["trip_id"],
+            "status": new_status,
+            "message": f"Your request to join the trip has been {new_status}"
+        }),
+        join_request["requester_id"]
+    )
+    
+    return {"message": f"Request {new_status} successfully"}
 
 @app.get("/api/trips/{trip_id}")
 async def get_trip_details(trip_id: str, current_user: dict = Depends(get_current_user)):
