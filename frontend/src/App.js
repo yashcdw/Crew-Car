@@ -954,9 +954,27 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-red-600 text-white p-4">
         <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">
-            Turkish Airlines - {tripType === 'taxi' ? 'Taxi Sharing' : 'Personnel Car'}
-          </h1>
+          <div className="flex items-center space-x-4">
+            <h1 className="text-2xl font-bold">Turkish Airlines</h1>
+            <div className="bg-red-700 rounded-lg p-1 flex">
+              <button
+                onClick={() => setTripType('taxi')}
+                className={`px-3 py-1 rounded text-sm ${
+                  tripType === 'taxi' ? 'bg-white text-red-600' : 'text-white'
+                }`}
+              >
+                🚕 Taxi
+              </button>
+              <button
+                onClick={() => setTripType('personal_car')}
+                className={`px-3 py-1 rounded text-sm ${
+                  tripType === 'personal_car' ? 'bg-white text-red-600' : 'text-white'
+                }`}
+              >
+                🚗 Personnel
+              </button>
+            </div>
+          </div>
           <div className="flex items-center space-x-4">
             <span>Wallet: {formatCurrency(wallet.balance)}</span>
             <button
