@@ -1050,21 +1050,25 @@ function App() {
         </div>
       </nav>
       
-      <div className="container mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">
-                Available {tripType === 'taxi' ? 'Taxi' : 'Car'} Trips
-              </h2>
-              <button
-                onClick={fetchTrips}
-                disabled={loading}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md disabled:opacity-50"
-              >
-                {loading ? 'Loading...' : 'Refresh'}
-              </button>
-            </div>
+      <div className="container mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          {/* Main Content - Trips List */}
+          <div className="xl:col-span-2">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="px-6 py-4 border-b border-gray-100">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Available {tripType === 'taxi' ? 'Taxi' : 'Personnel Car'} Trips
+                  </h2>
+                  <button
+                    onClick={fetchTrips}
+                    disabled={loading}
+                    className="text-gray-500 hover:text-gray-700 text-sm font-medium disabled:opacity-50"
+                  >
+                    {loading ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
+              </div>
             
             {trips.length === 0 ? (
               <p className="text-gray-500 text-center py-8">No trips available. Create the first one!</p>
