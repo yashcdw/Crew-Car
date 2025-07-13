@@ -209,6 +209,7 @@ class BookingCreate(BaseModel):
     pickup_location: Optional[Location] = None
     pickup_bus_stop_id: Optional[str] = None
     home_address: Optional[Location] = None  # New field for home pickup
+    payment_method: str = "wallet"  # "wallet" or "stripe"
 
 class Booking(BaseModel):
     id: str
