@@ -264,12 +264,43 @@ function App() {
     pickup_location: null
   });
 
+  // Initialize WebSocket connection
   useEffect(() => {
-    if (token) {
-      fetchUserProfile();
-      setCurrentView('dashboard');
+    if (user && token) {
+      const newSocket = io(API_URL, {
+        auth: { token }
+      });
+
+      newSocket.on('connect', () => {
+        console.log('Connected to WebSocket');
+      });
+
+      newSocket.on('chat_message', (data) => {
+        setMessages(prev => [...prev, data.message]);
+      });
+
+      newSocket.on('location_update', (data) => {
+        setLiveLocations(prev => {
+          const updated = prev.filter(loc => loc.user_id !== data.user_id);
+          return [...updated, data];
+        });
+      });
+
+      newSocket.on('join_request', (data) => {
+        alert(data.message);
+      });
+
+      newSocket.on('trip_booking', (data) => {
+        alert(data.message);
+      });
+
+      setSocket(newSocket);
+
+      return () => {
+        newSocket.disconnect();
+      };
     }
-  }, [token]);
+  }, [user, token]);
 
   useEffect(() => {
     if (currentView === 'dashboard') {
