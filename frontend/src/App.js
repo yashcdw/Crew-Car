@@ -17,19 +17,40 @@ const center = {
   lng: 28.9784
 };
 
-// Location Autocomplete Component
-const LocationAutocomplete = ({ onPlaceSelect, placeholder = "Enter location", value = "" }) => {
-  const [autocomplete, setAutocomplete] = useState(null);
-  const inputRef = useRef(null);
+// Location autocomplete component
+const LocationAutocomplete = ({ onPlaceSelect, placeholder, value }) => {
+  const [inputValue, setInputValue] = useState(value || '');
+  const [predictions, setPredictions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const onLoad = (autocompleteInstance) => {
-    setAutocomplete(autocompleteInstance);
-  };
+  useEffect(() => {
+    if (inputValue && inputValue.length > 2) {
+      const service = new window.google.maps.places.AutocompleteService();
+      service.getPlacePredictions(
+        { input: inputValue, componentRestrictions: { country: 'tr' } },
+        (predictions, status) => {
+          if (status === window.google.maps.places.PlacesServiceStatus.OK) {
+            setPredictions(predictions || []);
+            setShowSuggestions(true);
+          } else {
+            setPredictions([]);
+            setShowSuggestions(false);
+          }
+        }
+      );
+    } else {
+      setPredictions([]);
+      setShowSuggestions(false);
+    }
+  }, [inputValue]);
 
-  const onPlaceChanged = () => {
-    if (autocomplete !== null) {
-      const place = autocomplete.getPlace();
-      if (place.geometry) {
+  const handlePlaceSelect = (prediction) => {
+    const service = new window.google.maps.places.PlacesService(
+      document.createElement('div')
+    );
+
+    service.getDetails({ placeId: prediction.place_id }, (place, status) => {
+      if (status === window.google.maps.places.PlacesServiceStatus.OK) {
         const location = {
           address: place.formatted_address,
           coordinates: {
@@ -39,20 +60,35 @@ const LocationAutocomplete = ({ onPlaceSelect, placeholder = "Enter location", v
           place_id: place.place_id
         };
         onPlaceSelect(location);
+        setInputValue(place.formatted_address);
+        setShowSuggestions(false);
       }
-    }
+    });
   };
 
   return (
-    <Autocomplete onLoad={onLoad} onPlaceChanged={onPlaceChanged}>
+    <div className="relative">
       <input
-        ref={inputRef}
         type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
         placeholder={placeholder}
-        defaultValue={value}
         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
       />
-    </Autocomplete>
+      {showSuggestions && predictions.length > 0 && (
+        <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+          {predictions.map((prediction) => (
+            <div
+              key={prediction.place_id}
+              className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+              onClick={() => handlePlaceSelect(prediction)}
+            >
+              {prediction.description}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 
