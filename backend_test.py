@@ -208,49 +208,73 @@ class TurkishAirlinesCarPoolingAPITest(unittest.TestCase):
         self.assertEqual(data["message"], "Trip created successfully")
         self.assertIn("trip_id", data)
         
+    def test_10_create_trip(self):
+        """Test creating a trip with enhanced location data"""
+        print("\n10. Testing trip creation with Google Maps integration...")
+        response = self.api_call("/api/trips", method="POST", data=self.test_trip, token=self.token)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["message"], "Trip created successfully")
+        self.assertIn("trip_id", data)
+        
         # Save trip_id for subsequent tests
         self.trip_id = data["trip_id"]
-        print(f"✅ Trip creation passed - Trip ID: {self.trip_id}")
+        print(f"✅ Trip creation with Google Maps integration passed - Trip ID: {self.trip_id}")
 
-    def test_07_get_available_trips(self):
-        """Test getting available trips"""
-        print("\n7. Testing get available trips...")
+    def test_11_get_available_trips(self):
+        """Test getting available trips with distance and duration info"""
+        print("\n11. Testing get available trips with enhanced data...")
         response = self.api_call("/api/trips", token=self.token)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("trips", data)
         
-        # Verify our created trip is in the list
+        # Verify our created trip is in the list with enhanced data
         trip_found = False
         for trip in data["trips"]:
             if trip["id"] == self.trip_id:
                 trip_found = True
-                self.assertEqual(trip["origin"], self.test_trip["origin"])
-                self.assertEqual(trip["destination"], self.test_trip["destination"])
+                self.assertEqual(trip["origin"]["address"], self.test_trip["origin"]["address"])
+                self.assertEqual(trip["destination"]["address"], self.test_trip["destination"]["address"])
                 self.assertEqual(trip["available_seats"], self.test_trip["available_seats"])
                 self.assertEqual(trip["price_per_person"], self.test_trip["price_per_person"])
                 self.assertTrue(trip["is_creator"])
+                
+                # Check enhanced Phase 2 features
+                self.assertIn("distance_km", trip)
+                self.assertIn("duration_minutes", trip)
+                self.assertIn("route_polyline", trip)
+                self.assertIsInstance(trip["distance_km"], (int, float))
+                self.assertIsInstance(trip["duration_minutes"], (int, float))
+                
+                print(f"   Distance: {trip['distance_km']}km")
+                print(f"   Duration: {trip['duration_minutes']} minutes")
                 break
         
         self.assertTrue(trip_found, "Created trip not found in available trips")
-        print("✅ Get available trips passed")
+        print("✅ Get available trips with enhanced data passed")
 
-    def test_08_get_trip_details(self):
-        """Test getting trip details"""
-        print("\n8. Testing get trip details...")
+    def test_12_get_trip_details(self):
+        """Test getting trip details with enhanced location data"""
+        print("\n12. Testing get trip details with enhanced data...")
         response = self.api_call(f"/api/trips/{self.trip_id}", token=self.token)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["id"], self.trip_id)
-        self.assertEqual(data["origin"], self.test_trip["origin"])
-        self.assertEqual(data["destination"], self.test_trip["destination"])
+        self.assertEqual(data["origin"]["address"], self.test_trip["origin"]["address"])
+        self.assertEqual(data["destination"]["address"], self.test_trip["destination"]["address"])
         self.assertEqual(data["price_per_person"], self.test_trip["price_per_person"])
         self.assertTrue(data["is_creator"])
-        print("✅ Get trip details passed")
+        
+        # Check enhanced Phase 2 features
+        self.assertIn("distance_km", data)
+        self.assertIn("duration_minutes", data)
+        self.assertIn("route_polyline", data)
+        print("✅ Get trip details with enhanced data passed")
 
-    def test_09_register_second_user(self):
+    def test_13_register_second_user(self):
         """Register a second user for booking tests"""
-        print("\n9. Registering second user for booking tests...")
+        print("\n13. Registering second user for booking tests...")
         response = self.api_call("/api/auth/register", method="POST", data=self.test_user2)
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -258,33 +282,36 @@ class TurkishAirlinesCarPoolingAPITest(unittest.TestCase):
         self.user_id2 = data["user"]["id"]
         print(f"✅ Second user registered - User ID: {self.user_id2}")
 
-    def test_10_book_own_trip(self):
+    def test_14_book_own_trip(self):
         """Test booking own trip (should fail)"""
-        print("\n10. Testing booking own trip (should fail)...")
-        response = self.api_call(f"/api/trips/{self.trip_id}/book", method="POST", token=self.token)
+        print("\n14. Testing booking own trip (should fail)...")
+        booking_data = {"trip_id": self.trip_id}
+        response = self.api_call(f"/api/trips/{self.trip_id}/book", method="POST", data=booking_data, token=self.token)
         self.assertEqual(response.status_code, 400)
         print("✅ Booking own trip correctly rejected")
 
-    def test_11_book_trip(self):
+    def test_15_book_trip(self):
         """Test booking a trip as second user"""
-        print("\n11. Testing booking a trip as second user...")
-        response = self.api_call(f"/api/trips/{self.trip_id}/book", method="POST", token=self.token2)
+        print("\n15. Testing booking a trip as second user...")
+        booking_data = {"trip_id": self.trip_id}
+        response = self.api_call(f"/api/trips/{self.trip_id}/book", method="POST", data=booking_data, token=self.token2)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["message"], "Trip booked successfully")
         self.assertIn("booking_id", data)
         print("✅ Trip booking passed")
 
-    def test_12_book_same_trip_again(self):
+    def test_16_book_same_trip_again(self):
         """Test booking the same trip again (should fail)"""
-        print("\n12. Testing booking the same trip again (should fail)...")
-        response = self.api_call(f"/api/trips/{self.trip_id}/book", method="POST", token=self.token2)
+        print("\n16. Testing booking the same trip again (should fail)...")
+        booking_data = {"trip_id": self.trip_id}
+        response = self.api_call(f"/api/trips/{self.trip_id}/book", method="POST", data=booking_data, token=self.token2)
         self.assertEqual(response.status_code, 400)
         print("✅ Duplicate booking correctly rejected")
 
-    def test_13_get_user_trips(self):
-        """Test getting user trips"""
-        print("\n13. Testing get user trips...")
+    def test_17_get_user_trips(self):
+        """Test getting user trips with enhanced data"""
+        print("\n17. Testing get user trips with enhanced data...")
         
         # Check creator's trips
         response = self.api_call("/api/user/trips", token=self.token)
@@ -293,14 +320,18 @@ class TurkishAirlinesCarPoolingAPITest(unittest.TestCase):
         self.assertIn("created_trips", data)
         self.assertIn("booked_trips", data)
         
-        # Verify created trip is in the list
+        # Verify created trip is in the list with enhanced data
         trip_found = False
         for trip in data["created_trips"]:
             if trip["id"] == self.trip_id:
                 trip_found = True
-                self.assertEqual(trip["origin"], self.test_trip["origin"])
-                self.assertEqual(trip["destination"], self.test_trip["destination"])
+                self.assertEqual(trip["origin"]["address"], self.test_trip["origin"]["address"])
+                self.assertEqual(trip["destination"]["address"], self.test_trip["destination"]["address"])
                 self.assertEqual(trip["type"], "created")
+                
+                # Check enhanced Phase 2 features
+                self.assertIn("distance_km", trip)
+                self.assertIn("duration_minutes", trip)
                 break
         
         self.assertTrue(trip_found, "Created trip not found in user's created trips")
@@ -310,31 +341,35 @@ class TurkishAirlinesCarPoolingAPITest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         
-        # Verify booked trip is in the list
+        # Verify booked trip is in the list with enhanced data
         trip_found = False
         for trip in data["booked_trips"]:
             if trip["id"] == self.trip_id:
                 trip_found = True
-                self.assertEqual(trip["origin"], self.test_trip["origin"])
-                self.assertEqual(trip["destination"], self.test_trip["destination"])
+                self.assertEqual(trip["origin"]["address"], self.test_trip["origin"]["address"])
+                self.assertEqual(trip["destination"]["address"], self.test_trip["destination"]["address"])
                 self.assertEqual(trip["type"], "booked")
+                
+                # Check enhanced Phase 2 features
+                self.assertIn("distance_km", trip)
+                self.assertIn("duration_minutes", trip)
                 break
         
         self.assertTrue(trip_found, "Booked trip not found in user's booked trips")
-        print("✅ Get user trips passed")
+        print("✅ Get user trips with enhanced data passed")
 
-    def test_14_cancel_trip(self):
+    def test_18_cancel_trip(self):
         """Test cancelling a trip"""
-        print("\n14. Testing trip cancellation...")
+        print("\n18. Testing trip cancellation...")
         response = self.api_call(f"/api/trips/{self.trip_id}", method="DELETE", token=self.token)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["message"], "Trip cancelled successfully")
         print("✅ Trip cancellation passed")
 
-    def test_15_verify_trip_cancelled(self):
+    def test_19_verify_trip_cancelled(self):
         """Verify trip is marked as cancelled"""
-        print("\n15. Verifying trip is marked as cancelled...")
+        print("\n19. Verifying trip is marked as cancelled...")
         response = self.api_call(f"/api/trips/{self.trip_id}", token=self.token)
         self.assertEqual(response.status_code, 200)
         data = response.json()
