@@ -1231,31 +1231,55 @@ async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dic
     if current_bookings >= trip["available_seats"]:
         raise HTTPException(status_code=400, detail="No available seats")
     
-    # Calculate additional time if pickup location is provided
-    additional_time_minutes = 0
-    if booking_data.pickup_location:
-        trip_origin = Location(**trip["origin"])
-        trip_destination = Location(**trip["destination"])
-        compatibility = check_rider_compatibility(
-            trip_origin, trip_destination, booking_data.pickup_location, max_detour_minutes=30
-        )
-        if not compatibility["compatible"]:
-            raise HTTPException(status_code=400, detail="Pickup location adds too much detour time")
-        additional_time_minutes = compatibility["additional_time_minutes"]
+    # Handle payment
+    trip_cost = trip["price_per_person"]
     
-    # Calculate additional time for home address pickup
-    if booking_data.home_address:
-        trip_origin = Location(**trip["origin"])
-        trip_destination = Location(**trip["destination"])
-        compatibility = check_rider_compatibility(
-            trip_origin, trip_destination, booking_data.home_address, max_detour_minutes=30
+    if booking_data.payment_method == "wallet":
+        # Check wallet balance and deduct payment
+        wallet = get_or_create_wallet(current_user["id"])
+        if wallet["balance"] < trip_cost:
+            raise HTTPException(status_code=400, detail="Insufficient wallet balance")
+        
+        # Deduct amount from wallet
+        update_wallet_balance(current_user["id"], trip_cost, "payment")
+        
+        # Create payment transaction
+        create_wallet_transaction(
+            user_id=current_user["id"],
+            transaction_type="payment",
+            amount=trip_cost,
+            description=f"Trip booking - {trip['origin']['address']} to {trip['destination']['address']}",
+            status="completed"
         )
-        if not compatibility["compatible"]:
-            raise HTTPException(status_code=400, detail="Home address adds too much detour time")
-        additional_time_minutes = max(additional_time_minutes, compatibility["additional_time_minutes"])
+        
+        # Credit to trip creator's wallet
+        update_wallet_balance(trip["creator_id"], trip_cost, "topup")
+        create_wallet_transaction(
+            user_id=trip["creator_id"],
+            transaction_type="topup",
+            amount=trip_cost,
+            description=f"Trip payment received - {trip['origin']['address']} to {trip['destination']['address']}",
+            status="completed"
+        )
     
-    # Get bus stop if specified
+    # Calculate additional time for rider pickup
+    additional_time = 0
+    pickup_location = None
     pickup_bus_stop = None
+    
+    if booking_data.pickup_location:
+        pickup_location = booking_data.pickup_location
+        try:
+            origin_location = Location(**trip["origin"])
+            compatibility = check_rider_compatibility(
+                origin_location, 
+                Location(**trip["destination"]), 
+                pickup_location
+            )
+            additional_time = compatibility.get("additional_time_minutes", 0)
+        except Exception as e:
+            print(f"Error calculating pickup time: {e}")
+    
     if booking_data.pickup_bus_stop_id:
         bus_stop_data = bus_stops_collection.find_one({"id": booking_data.pickup_bus_stop_id})
         if bus_stop_data:
@@ -1269,33 +1293,34 @@ async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dic
         "user_id": current_user["id"],
         "user_name": current_user["name"],
         "booking_time": datetime.utcnow(),
-        "additional_time_minutes": additional_time_minutes,
-        "status": "confirmed"
+        "pickup_location": pickup_location.dict() if pickup_location else None,
+        "pickup_bus_stop": pickup_bus_stop.dict() if pickup_bus_stop else None,
+        "home_address": booking_data.home_address.dict() if booking_data.home_address else None,
+        "additional_time_minutes": additional_time,
+        "status": "confirmed",
+        "payment_method": booking_data.payment_method,
+        "amount_paid": trip_cost
     }
-    
-    if booking_data.pickup_location:
-        booking["pickup_location"] = booking_data.pickup_location.dict()
-    
-    if booking_data.home_address:
-        booking["home_address"] = booking_data.home_address.dict()
-    
-    if pickup_bus_stop:
-        booking["pickup_bus_stop"] = pickup_bus_stop.dict()
     
     bookings_collection.insert_one(booking)
     
     # Send real-time notification to trip creator
     await manager.send_personal_message(
         json.dumps({
-            "type": "trip_booking",
+            "type": "booking_notification",
             "trip_id": trip_id,
-            "user_name": current_user["name"],
-            "message": f"'{current_user['name']}' has booked your trip"
+            "message": f"New booking from {current_user['name']}",
+            "booking_id": booking_id
         }),
         trip["creator_id"]
     )
     
-    return {"message": "Trip booked successfully", "booking_id": booking_id}
+    return {
+        "message": "Trip booked successfully",
+        "booking_id": booking_id,
+        "payment_method": booking_data.payment_method,
+        "amount_paid": trip_cost
+    }
 
 @app.get("/api/user/trips")
 async def get_user_trips(current_user: dict = Depends(get_current_user)):
