@@ -191,6 +191,8 @@ class Trip(BaseModel):
 class BookingCreate(BaseModel):
     trip_id: str
     pickup_location: Optional[Location] = None
+    pickup_bus_stop_id: Optional[str] = None
+    home_address: Optional[Location] = None  # New field for home pickup
 
 class Booking(BaseModel):
     id: str
@@ -199,6 +201,8 @@ class Booking(BaseModel):
     user_name: str
     booking_time: datetime
     pickup_location: Optional[Location] = None
+    pickup_bus_stop: Optional[BusStop] = None
+    home_address: Optional[Location] = None  # New field for home pickup
     additional_time_minutes: Optional[float] = None
     status: str = "confirmed"
 
