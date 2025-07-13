@@ -224,6 +224,21 @@ class RiderMatchRequest(BaseModel):
     trip_destination: str
     max_detour_minutes: int = 7
 
+class PersonalCarTripCreate(BaseModel):
+    origin: Location
+    destination: Location
+    departure_time: datetime
+    available_seats: int = Field(default=3, le=3)
+    price_per_person: float
+    notes: Optional[str] = None
+    car_model: str
+    car_color: str
+    license_plate: str
+
+class JoinRequestCreate(BaseModel):
+    pickup_bus_stop_id: Optional[str] = None
+    message: Optional[str] = None
+
 # Helper functions
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
