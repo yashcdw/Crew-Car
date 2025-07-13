@@ -259,6 +259,32 @@ class CallRequest(BaseModel):
     to_user_id: str
     trip_id: Optional[str] = None
 
+class WalletTopupRequest(BaseModel):
+    package_id: str
+    origin_url: str
+
+class WalletPaymentRequest(BaseModel):
+    amount: float
+    description: str
+    recipient_user_id: Optional[str] = None
+
+class WalletTransaction(BaseModel):
+    id: str
+    user_id: str
+    transaction_type: str  # "topup", "payment", "refund"
+    amount: float
+    currency: str
+    description: str
+    status: str  # "pending", "completed", "failed"
+    created_at: datetime
+    payment_session_id: Optional[str] = None
+
+class Wallet(BaseModel):
+    user_id: str
+    balance: float
+    currency: str
+    last_updated: datetime
+
 # Helper functions
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
