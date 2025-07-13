@@ -170,6 +170,67 @@ const TripMap = ({ trips, selectedTrip, onTripSelect, userLocation, liveLocation
   );
 };
 
+// Chat Component
+const ChatComponent = ({ tripId, currentUser, messages, onSendMessage }) => {
+  const [newMessage, setNewMessage] = useState('');
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(scrollToBottom, [messages]);
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (newMessage.trim()) {
+      onSendMessage(newMessage);
+      setNewMessage('');
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-4 h-96 flex flex-col">
+      <h3 className="text-lg font-bold mb-4">Trip Chat</h3>
+      
+      <div className="flex-1 overflow-y-auto mb-4 space-y-2">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`p-2 rounded-lg max-w-xs ${
+              message.sender_id === currentUser.id
+                ? 'bg-red-500 text-white ml-auto'
+                : 'bg-gray-200 text-gray-800'
+            }`}
+          >
+            <div className="text-xs opacity-75 mb-1">
+              {message.sender_name} • {new Date(message.timestamp).toLocaleTimeString()}
+            </div>
+            <div>{message.content}</div>
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+      
+      <form onSubmit={handleSendMessage} className="flex space-x-2">
+        <input
+          type="text"
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          placeholder="Type a message..."
+          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+        />
+        <button
+          type="submit"
+          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md"
+        >
+          Send
+        </button>
+      </form>
+    </div>
+  );
+};
+
 function App() {
   const [currentView, setCurrentView] = useState('login');
   const [user, setUser] = useState(null);
