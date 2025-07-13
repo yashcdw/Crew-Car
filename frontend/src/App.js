@@ -63,8 +63,8 @@ const LocationAutocomplete = ({ onPlaceSelect, placeholder = "Enter location", v
   );
 };
 
-// Map Component
-const TripMap = ({ trips, selectedTrip, onTripSelect, userLocation }) => {
+// Map Component with Live Tracking
+const TripMap = ({ trips, selectedTrip, onTripSelect, userLocation, liveLocations = [] }) => {
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
