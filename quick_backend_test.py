@@ -8,7 +8,7 @@ import sys
 from datetime import datetime, timedelta
 
 def test_api():
-    base_url = "https://02c4049f-0590-4791-926a-42c50d717a39.preview.emergentagent.com"
+    base_url = "https://edd6d56b-2a86-4bf5-b3c7-2539850efc2a.preview.emergentagent.com"
     
     print("🚀 Testing Turkish Airlines Car Pooling API")
     print("=" * 50)

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 class QuickDiagnosticTest:
     def __init__(self):
-        self.base_url = "https://02c4049f-0590-4791-926a-42c50d717a39.preview.emergentagent.com"
+        self.base_url = "https://edd6d56b-2a86-4bf5-b3c7-2539850efc2a.preview.emergentagent.com"
         self.token = None
         
     def test_api_call(self, endpoint, method="GET", data=None, expected_status=200):

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 class TurkishAirlinesCarPoolingAPITest(unittest.TestCase):
     def setUp(self):
-        self.base_url = "https://02c4049f-0590-4791-926a-42c50d717a39.preview.emergentagent.com"
+        self.base_url = "https://edd6d56b-2a86-4bf5-b3c7-2539850efc2a.preview.emergentagent.com"
         self.token = None
         self.user_id = None
         self.trip_id = None

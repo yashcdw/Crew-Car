@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import uuid
 
 class SimpleAPITester:
-    def __init__(self, base_url="https://02c4049f-0590-4791-926a-42c50d717a39.preview.emergentagent.com"):
+    def __init__(self, base_url="https://edd6d56b-2a86-4bf5-b3c7-2539850efc2a.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.tests_run = 0
