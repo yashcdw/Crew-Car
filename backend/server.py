@@ -715,6 +715,9 @@ async def register(user_data: UserCreate):
     
     users_collection.insert_one(user)
     
+    # Initialize wallet with 0 balance
+    get_or_create_wallet(user_id)
+    
     # Create JWT token
     token = create_jwt_token(user_id)
     
