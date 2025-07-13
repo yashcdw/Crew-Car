@@ -453,26 +453,59 @@ function App() {
 
   const createTrip = async (e) => {
     e.preventDefault();
-    if (!tripForm.origin || !tripForm.destination) {
-      alert('Please select both origin and destination locations');
-      return;
+    
+    let endpoint, formData;
+    if (tripType === 'taxi') {
+      if (!tripForm.origin || !tripForm.destination) {
+        alert('Please select both origin and destination locations');
+        return;
+      }
+      endpoint = '/api/trips/taxi';
+      formData = {
+        origin: tripForm.origin,
+        destination: tripForm.destination,
+        departure_time: new Date(tripForm.departure_time).toISOString(),
+        available_seats: parseInt(tripForm.available_seats),
+        price_per_person: parseFloat(tripForm.price_per_person),
+        notes: tripForm.notes
+      };
+    } else {
+      if (!personalCarForm.origin || !personalCarForm.destination) {
+        alert('Please select both origin and destination locations');
+        return;
+      }
+      endpoint = '/api/trips/personal-car';
+      formData = {
+        origin: personalCarForm.origin,
+        destination: personalCarForm.destination,
+        departure_time: new Date(personalCarForm.departure_time).toISOString(),
+        available_seats: parseInt(personalCarForm.available_seats),
+        price_per_person: parseFloat(personalCarForm.price_per_person),
+        notes: personalCarForm.notes,
+        car_model: personalCarForm.car_model,
+        car_color: personalCarForm.car_color,
+        license_plate: personalCarForm.license_plate
+      };
     }
 
     try {
       setLoading(true);
-      await apiCall('/api/trips', {
+      await apiCall(endpoint, {
         method: 'POST',
-        body: JSON.stringify({
-          origin: tripForm.origin,
-          destination: tripForm.destination,
-          departure_time: new Date(tripForm.departure_time).toISOString(),
-          available_seats: parseInt(tripForm.available_seats),
-          price_per_person: parseFloat(tripForm.price_per_person),
-          notes: tripForm.notes
-        })
+        body: JSON.stringify(formData)
       });
       alert('Trip created successfully!');
-      setTripForm({ origin: null, destination: null, departure_time: '', available_seats: 3, price_per_person: '', notes: '' });
+      
+      // Reset forms
+      if (tripType === 'taxi') {
+        setTripForm({ origin: null, destination: null, departure_time: '', available_seats: 3, price_per_person: '', notes: '' });
+      } else {
+        setPersonalCarForm({ 
+          origin: null, destination: null, departure_time: '', available_seats: 3, 
+          price_per_person: '', notes: '', car_model: '', car_color: '', license_plate: '' 
+        });
+      }
+      
       setCurrentView('dashboard');
     } catch (error) {
       alert('Error creating trip: ' + error.message);
@@ -481,20 +514,39 @@ function App() {
     }
   };
 
-  const bookTrip = async (tripId, pickupLocation = null) => {
+  const bookTrip = async (tripId, useHomeAddress = false) => {
     try {
       setLoading(true);
-      await apiCall(`/api/trips/${tripId}/book`, {
-        method: 'POST',
-        body: JSON.stringify({
-          trip_id: tripId,
-          pickup_location: pickupLocation
-        })
-      });
-      alert('Trip booked successfully!');
+      const trip = trips.find(t => t.id === tripId);
+      
+      if (trip?.trip_type === 'personal_car') {
+        // For personal car trips, create a join request
+        await apiCall(`/api/trips/${tripId}/join-request`, {
+          method: 'POST',
+          body: JSON.stringify({
+            message: 'I would like to join this trip'
+          })
+        });
+        alert('Join request sent successfully!');
+      } else {
+        // For taxi trips, book directly
+        const bookingData = { trip_id: tripId };
+        
+        if (useHomeAddress && bookingForm.home_address) {
+          bookingData.home_address = bookingForm.home_address;
+        } else if (bookingForm.pickup_location) {
+          bookingData.pickup_location = bookingForm.pickup_location;
+        }
+        
+        await apiCall(`/api/trips/${tripId}/book`, {
+          method: 'POST',
+          body: JSON.stringify(bookingData)
+        });
+        alert('Trip booked successfully!');
+      }
       fetchTrips();
     } catch (error) {
-      alert('Error booking trip: ' + error.message);
+      alert('Error: ' + error.message);
     } finally {
       setLoading(false);
     }
