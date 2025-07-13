@@ -312,6 +312,78 @@ backend:
           agent: "testing"
           comment: "✅ System correctly rejects invalid payment methods (e.g., 'crypto', 'bitcoin') with appropriate error messages. Taxi trips show 'Invalid payment method. Taxi trips accept: cash, card, or wallet'. Personal car trips show 'Personal car trips only accept wallet payments'."
 
+  - task: "User registration with home address (/api/auth/register)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ User registration with optional home_address field works correctly. Home address is properly stored with address, coordinates, and place_id. Users can register both with and without home address."
+
+  - task: "User profile management with home address (/api/user/profile)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ User profile GET and PUT endpoints correctly handle home_address field. Users can view their home address in profile and update it via PUT request. Profile updates properly store new home address coordinates and details."
+
+  - task: "Airport trips endpoint (/api/trips/airport)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ Airport trips endpoint successfully filters trips containing airport keywords (airport, havalimanı, havaalanı, IST, SAW). Returns trips sorted by distance from user's home address when available. Found 20 airport trips in test, all properly filtered and airport-related."
+
+  - task: "Distance calculation and sorting for airport trips"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ Distance calculation from user's home address to trip origins works correctly. Airport trips are properly sorted by proximity to user's home. Distance calculation uses coordinate-based formula and returns reasonable distance values."
+
+  - task: "Home address in trip bookings (/api/trips/{trip_id}/book)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ Trip booking endpoint accepts home_address field in booking data for home pickup scenarios. Booking successfully processes with home pickup address and stores the location information."
+
+  - task: "Personal car airport trip creation (/api/trips/personal-car)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "✅ Personal car trip creation works for airport destinations. Endpoint properly handles airport locations and integrates with airport trip filtering. Personal car airport trips appear correctly in /api/trips/airport endpoint."
+
 frontend:
   # No frontend testing performed as per instructions
 
