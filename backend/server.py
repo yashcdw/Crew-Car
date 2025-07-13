@@ -769,15 +769,124 @@ async def login(login_data: UserLogin):
     }
 
 @app.get("/api/user/profile")
-async def get_profile(current_user: dict = Depends(get_current_user)):
-    return User(
-        id=current_user["id"],
-        name=current_user["name"],
-        email=current_user["email"],
-        phone=current_user["phone"],
-        employee_id=current_user["employee_id"],
-        department=current_user["department"]
+async def get_user_profile(current_user: dict = Depends(get_current_user)):
+    return {
+        "id": current_user["id"],
+        "name": current_user["name"],
+        "email": current_user["email"],
+        "phone": current_user["phone"],
+        "employee_id": current_user["employee_id"],
+        "department": current_user["department"],
+        "home_address": current_user.get("home_address")
+    }
+
+@app.put("/api/user/profile")
+async def update_user_profile(profile_data: UserProfile, current_user: dict = Depends(get_current_user)):
+    # Update user profile
+    update_data = {
+        "name": profile_data.name,
+        "email": profile_data.email,
+        "phone": profile_data.phone,
+        "employee_id": profile_data.employee_id,
+        "department": profile_data.department,
+        "home_address": profile_data.home_address.dict() if profile_data.home_address else None
+    }
+    
+    users_collection.update_one(
+        {"id": current_user["id"]},
+        {"$set": update_data}
     )
+    
+    return {"message": "Profile updated successfully"}
+
+@app.get("/api/trips/airport")
+async def get_airport_trips(current_user: dict = Depends(get_current_user)):
+    """Get trips to/from airport, prioritizing those near user's home"""
+    
+    # Common airport locations in Turkey
+    airport_keywords = ["airport", "havalimanı", "havaalanı", "istanbul airport", "sabiha gökçen", "atatürk airport"]
+    
+    # Build query to find airport-related trips
+    airport_query = {
+        "$or": [
+            {"origin.address": {"$regex": "|".join(airport_keywords), "$options": "i"}},
+            {"destination.address": {"$regex": "|".join(airport_keywords), "$options": "i"}}
+        ],
+        "departure_time": {"$gte": datetime.utcnow()},
+        "available_seats": {"$gt": 0}
+    }
+    
+    airport_trips = list(trips_collection.find(airport_query))
+    personal_car_trips = list(personal_car_trips_collection.find(airport_query))
+    
+    # Combine and process trips
+    all_trips = []
+    
+    # Process regular trips
+    for trip in airport_trips:
+        trip_data = dict(trip)
+        trip_data["trip_type"] = "taxi"
+        trip_data["max_riders"] = 3
+        trip_data["is_creator"] = trip["creator_id"] == current_user["id"]
+        
+        # Calculate distance from user home if available
+        if current_user.get("home_address") and trip.get("origin"):
+            try:
+                user_coords = current_user["home_address"]["coordinates"]
+                trip_coords = trip["origin"]["coordinates"]
+                
+                # Simple distance calculation (haversine would be more accurate)
+                lat_diff = abs(user_coords["lat"] - trip_coords["lat"])
+                lng_diff = abs(user_coords["lng"] - trip_coords["lng"])
+                approximate_distance = ((lat_diff ** 2 + lng_diff ** 2) ** 0.5) * 111  # Rough km conversion
+                
+                trip_data["distance_from_home"] = approximate_distance
+            except:
+                trip_data["distance_from_home"] = float('inf')
+        else:
+            trip_data["distance_from_home"] = float('inf')
+        
+        all_trips.append(trip_data)
+    
+    # Process personal car trips
+    for trip in personal_car_trips:
+        trip_data = dict(trip)
+        trip_data["trip_type"] = "personal_car"
+        trip_data["max_riders"] = trip["available_seats"] + 1
+        trip_data["is_creator"] = trip["creator_id"] == current_user["id"]
+        
+        # Calculate distance from user home
+        if current_user.get("home_address") and trip.get("origin"):
+            try:
+                user_coords = current_user["home_address"]["coordinates"]
+                trip_coords = trip["origin"]["coordinates"]
+                
+                lat_diff = abs(user_coords["lat"] - trip_coords["lat"])
+                lng_diff = abs(user_coords["lng"] - trip_coords["lng"])
+                approximate_distance = ((lat_diff ** 2 + lng_diff ** 2) ** 0.5) * 111
+                
+                trip_data["distance_from_home"] = approximate_distance
+            except:
+                trip_data["distance_from_home"] = float('inf')
+        else:
+            trip_data["distance_from_home"] = float('inf')
+            
+        all_trips.append(trip_data)
+    
+    # Sort by distance from home (nearest first)
+    all_trips.sort(key=lambda x: x.get("distance_from_home", float('inf')))
+    
+    # Clean up trips for response
+    for trip in all_trips:
+        trip.pop("_id", None)
+        if "distance_from_home" in trip and trip["distance_from_home"] == float('inf'):
+            trip.pop("distance_from_home", None)
+    
+    return {
+        "trips": all_trips[:20],  # Limit to 20 trips
+        "user_home_address": current_user.get("home_address"),
+        "total_found": len(all_trips)
+    }
 
 @app.post("/api/trips")
 async def create_trip(trip_data: TripCreate, current_user: dict = Depends(get_current_user)):
