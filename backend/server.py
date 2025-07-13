@@ -174,6 +174,14 @@ class User(BaseModel):
     department: str
     home_address: Optional[Location] = None
 
+class UserProfile(BaseModel):
+    name: str
+    email: str
+    phone: str
+    employee_id: str
+    department: str
+    home_address: Optional[Location] = None
+
 class BusStop(BaseModel):
     id: str
     name: str
