@@ -6,6 +6,7 @@ import {
   DirectionsRenderer,
   Autocomplete
 } from '@react-google-maps/api';
+import io from 'socket.io-client';
 import './App.css';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
