@@ -971,6 +971,24 @@ async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dic
             raise HTTPException(status_code=400, detail="Pickup location adds too much detour time")
         additional_time_minutes = compatibility["additional_time_minutes"]
     
+    # Calculate additional time for home address pickup
+    if booking_data.home_address:
+        trip_origin = Location(**trip["origin"])
+        trip_destination = Location(**trip["destination"])
+        compatibility = check_rider_compatibility(
+            trip_origin, trip_destination, booking_data.home_address, max_detour_minutes=30
+        )
+        if not compatibility["compatible"]:
+            raise HTTPException(status_code=400, detail="Home address adds too much detour time")
+        additional_time_minutes = max(additional_time_minutes, compatibility["additional_time_minutes"])
+    
+    # Get bus stop if specified
+    pickup_bus_stop = None
+    if booking_data.pickup_bus_stop_id:
+        bus_stop_data = bus_stops_collection.find_one({"id": booking_data.pickup_bus_stop_id})
+        if bus_stop_data:
+            pickup_bus_stop = BusStop(**bus_stop_data)
+    
     # Create booking
     booking_id = str(uuid.uuid4())
     booking = {
@@ -986,9 +1004,122 @@ async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dic
     if booking_data.pickup_location:
         booking["pickup_location"] = booking_data.pickup_location.dict()
     
+    if booking_data.home_address:
+        booking["home_address"] = booking_data.home_address.dict()
+    
+    if pickup_bus_stop:
+        booking["pickup_bus_stop"] = pickup_bus_stop.dict()
+    
     bookings_collection.insert_one(booking)
     
+    # Send real-time notification to trip creator
+    await manager.send_personal_message(
+        json.dumps({
+            "type": "trip_booking",
+            "trip_id": trip_id,
+            "user_name": current_user["name"],
+            "message": f"'{current_user['name']}' has booked your trip"
+        }),
+        trip["creator_id"]
+    )
+    
     return {"message": "Trip booked successfully", "booking_id": booking_id}
+
+@app.get("/api/user/trips")
+async def get_user_trips(current_user: dict = Depends(get_current_user)):
+    # Get taxi trips created by user
+    created_taxi_trips = list(trips_collection.find({"creator_id": current_user["id"]}))
+    
+    # Get personal car trips created by user
+    created_personal_trips = list(personal_car_trips_collection.find({"creator_id": current_user["id"]}))
+    
+    # Get trips booked by user (taxi trips only)
+    user_bookings = list(bookings_collection.find({"user_id": current_user["id"], "status": "confirmed"}))
+    booked_trip_ids = [booking["trip_id"] for booking in user_bookings]
+    booked_trips = list(trips_collection.find({"id": {"$in": booked_trip_ids}}))
+    
+    # Get personal car trips user has joined
+    user_join_requests = list(join_requests_collection.find({"requester_id": current_user["id"], "status": "approved"}))
+    joined_trip_ids = [request["trip_id"] for request in user_join_requests]
+    joined_personal_trips = list(personal_car_trips_collection.find({"id": {"$in": joined_trip_ids}}))
+    
+    def format_trip(trip, trip_type, category):
+        # Handle both old string format and new Location format
+        try:
+            if isinstance(trip["origin"], str):
+                origin = Location(address=trip["origin"], coordinates={"lat": 0, "lng": 0})
+            else:
+                origin = Location(**trip["origin"])
+        except Exception:
+            origin = Location(address=str(trip["origin"]), coordinates={"lat": 0, "lng": 0})
+        
+        try:
+            if isinstance(trip["destination"], str):
+                destination = Location(address=trip["destination"], coordinates={"lat": 0, "lng": 0})
+            else:
+                destination = Location(**trip["destination"])
+        except Exception:
+            destination = Location(address=str(trip["destination"]), coordinates={"lat": 0, "lng": 0})
+        
+        # Get current bookings/requests
+        if trip_type == "taxi":
+            current_bookings = bookings_collection.count_documents({"trip_id": trip["id"], "status": "confirmed"})
+        else:
+            current_bookings = join_requests_collection.count_documents({"trip_id": trip["id"], "status": "approved"})
+        
+        formatted = {
+            "id": trip["id"],
+            "origin": origin,
+            "destination": destination,
+            "departure_time": trip["departure_time"],
+            "available_seats": trip["available_seats"] - current_bookings,
+            "price_per_person": trip["price_per_person"],
+            "status": trip["status"],
+            "distance_km": trip.get("distance_km", 0),
+            "duration_minutes": trip.get("duration_minutes", 0),
+            "current_riders": current_bookings,
+            "type": category,
+            "trip_type": trip_type
+        }
+        
+        if category == "created":
+            formatted["bookings"] = current_bookings
+        else:
+            formatted["creator_name"] = trip["creator_name"]
+        
+        # Add personal car specific fields
+        if trip_type == "personal_car":
+            formatted.update({
+                "car_model": trip.get("car_model"),
+                "car_color": trip.get("car_color"),
+                "license_plate": trip.get("license_plate"),
+                "nearest_bus_stop": trip.get("nearest_bus_stop")
+            })
+        
+        return formatted
+    
+    created_list = []
+    for trip in created_taxi_trips:
+        created_list.append(format_trip(trip, "taxi", "created"))
+    
+    for trip in created_personal_trips:
+        created_list.append(format_trip(trip, "personal_car", "created"))
+    
+    booked_list = []
+    for trip in booked_trips:
+        booked_list.append(format_trip(trip, "taxi", "booked"))
+    
+    for trip in joined_personal_trips:
+        booked_list.append(format_trip(trip, "personal_car", "booked"))
+    
+    # Sort by departure time
+    created_list.sort(key=lambda x: x["departure_time"])
+    booked_list.sort(key=lambda x: x["departure_time"])
+    
+    return {
+        "created_trips": created_list,
+        "booked_trips": booked_list
+    }
 
 @app.get("/api/user/trips")
 async def get_user_trips(current_user: dict = Depends(get_current_user)):
