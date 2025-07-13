@@ -142,9 +142,9 @@ class LocationAirportFeaturesTest(unittest.TestCase):
         self.assertEqual(data["user"]["home_address"]["coordinates"]["lng"], self.istanbul_home["coordinates"]["lng"])
         
         # Save token and user_id for subsequent tests
-        self.token = data["token"]
-        self.user_id = data["user"]["id"]
-        print(f"✅ User registration with home address passed - User ID: {self.user_id}")
+        LocationAirportFeaturesTest.token = data["token"]
+        LocationAirportFeaturesTest.user_id = data["user"]["id"]
+        print(f"✅ User registration with home address passed - User ID: {LocationAirportFeaturesTest.user_id}")
 
     def test_02_register_user_without_home_address(self):
         """Test user registration without home address"""
