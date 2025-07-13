@@ -1,21 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { GoogleMap, LoadScript, Marker, DirectionsRenderer, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, LoadScript, Marker, DirectionsRenderer } from '@react-google-maps/api';
 import './App.css';
 
 const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-
-const libraries = ['places'];
-
-const mapContainerStyle = {
-  width: '100%',
-  height: '400px'
-};
-
-const center = {
-  lat: 41.0082, // Istanbul coordinates
-  lng: 28.9784
-};
 
 // Location autocomplete component
 const LocationAutocomplete = ({ onPlaceSelect, placeholder, value }) => {
@@ -159,81 +147,22 @@ const TripMap = ({ trips, selectedTrip, onTripSelect, userLocation }) => {
     </div>
   );
 };
-const ChatComponent = ({ tripId, currentUser, messages, onSendMessage }) => {
-  const [newMessage, setNewMessage] = useState('');
-  const messagesEndRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(scrollToBottom, [messages]);
-
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (newMessage.trim()) {
-      onSendMessage(newMessage);
-      setNewMessage('');
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-md p-4 h-96 flex flex-col">
-      <h3 className="text-lg font-bold mb-4">Trip Chat</h3>
-      
-      <div className="flex-1 overflow-y-auto mb-4 space-y-2">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`p-2 rounded-lg max-w-xs ${
-              message.sender_id === currentUser.id
-                ? 'bg-red-500 text-white ml-auto'
-                : 'bg-gray-200 text-gray-800'
-            }`}
-          >
-            <div className="text-xs opacity-75 mb-1">
-              {message.sender_name} • {new Date(message.timestamp).toLocaleTimeString()}
-            </div>
-            <div>{message.content}</div>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-      
-      <form onSubmit={handleSendMessage} className="flex space-x-2">
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-        />
-        <button
-          type="submit"
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md"
-        >
-          Send
-        </button>
-      </form>
-    </div>
-  );
-};
 
 function App() {
   const [currentView, setCurrentView] = useState('login');
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [trips, setTrips] = useState([]);
   const [userTrips, setUserTrips] = useState({ created_trips: [], booked_trips: [] });
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [tripType, setTripType] = useState('taxi'); // 'taxi' or 'personal_car'
-  
-  // Real-time features
-  const [socket, setSocket] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [liveLocations, setLiveLocations] = useState([]);
+  const [tripType, setTripType] = useState('taxi');
+
+  // Wallet state
+  const [wallet, setWallet] = useState({ balance: 0, currency: 'try' });
+  const [walletPackages, setWalletPackages] = useState({});
+  const [walletTransactions, setWalletTransactions] = useState([]);
 
   // Form states
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
@@ -248,83 +177,19 @@ function App() {
     price_per_person: '', notes: '', car_model: '', car_color: '', license_plate: ''
   });
   const [bookingForm, setBookingForm] = useState({
-    home_address: null,
-    pickup_location: null
+    pickup_location: null, pickup_bus_stop_id: '', home_address: null, payment_method: 'wallet'
   });
 
-  // Initialize WebSocket connection
+  // Check for token on app load
   useEffect(() => {
-    if (user && token) {
-      const newSocket = io(API_URL, {
-        auth: { token }
-      });
-
-      newSocket.on('connect', () => {
-        console.log('Connected to WebSocket');
-      });
-
-      newSocket.on('chat_message', (data) => {
-        setMessages(prev => [...prev, data.message]);
-      });
-
-      newSocket.on('location_update', (data) => {
-        setLiveLocations(prev => {
-          const updated = prev.filter(loc => loc.user_id !== data.user_id);
-          return [...updated, data];
-        });
-      });
-
-      newSocket.on('join_request', (data) => {
-        alert(data.message);
-      });
-
-      newSocket.on('trip_booking', (data) => {
-        alert(data.message);
-      });
-
-      setSocket(newSocket);
-
-      return () => {
-        newSocket.disconnect();
-      };
+    const savedToken = localStorage.getItem('token');
+    if (savedToken) {
+      setToken(savedToken);
+      fetchUserProfile(savedToken);
     }
-  }, [user, token]);
+  }, []);
 
-  const sendWebSocketMessage = (messageData) => {
-    if (socket && socket.connected) {
-      socket.emit('message', messageData);
-    }
-  };
-
-  const sendChatMessage = (content) => {
-    if (selectedTrip && socket) {
-      const messageData = {
-        type: 'chat_message',
-        trip_id: selectedTrip.id,
-        content: content,
-        message_type: 'text'
-      };
-      sendWebSocketMessage(messageData);
-    }
-  };
-
-  const updateLiveLocation = (tripId) => {
-    if (navigator.geolocation && socket) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        const locationData = {
-          type: 'location_update',
-          trip_id: tripId,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          heading: position.coords.heading,
-          speed: position.coords.speed
-        };
-        sendWebSocketMessage(locationData);
-      });
-    }
-  };
-
-  // Get user's current location
+  // Get user location
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -334,38 +199,40 @@ function App() {
             lng: position.coords.longitude
           });
         },
-        (error) => {
-          console.log('Error getting location:', error);
-        }
+        (error) => console.log('Error getting location:', error)
       );
     }
   }, []);
 
   const apiCall = async (endpoint, options = {}) => {
+    const url = `${BACKEND_URL}${endpoint}`;
     const headers = {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` })
     };
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(url, {
       ...options,
       headers: { ...headers, ...options.headers }
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Something went wrong');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
     }
 
     return response.json();
   };
 
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = async (authToken = token) => {
     try {
-      const data = await apiCall('/api/user/profile');
+      const data = await apiCall('/api/user/profile', {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
       setUser(data);
+      setCurrentView('home');
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Failed to fetch user profile:', error);
       logout();
     }
   };
@@ -373,10 +240,10 @@ function App() {
   const fetchTrips = async () => {
     try {
       setLoading(true);
-      const data = await apiCall('/api/trips');
-      setTrips(data.trips);
+      const data = await apiCall(`/api/trips?trip_type=${tripType}`);
+      setTrips(data.trips || []);
     } catch (error) {
-      console.error('Error fetching trips:', error);
+      console.error('Failed to fetch trips:', error);
     } finally {
       setLoading(false);
     }
@@ -384,15 +251,67 @@ function App() {
 
   const fetchUserTrips = async () => {
     try {
-      setLoading(true);
       const data = await apiCall('/api/user/trips');
       setUserTrips(data);
     } catch (error) {
-      console.error('Error fetching user trips:', error);
-    } finally {
-      setLoading(false);
+      console.error('Failed to fetch user trips:', error);
     }
   };
+
+  const fetchWallet = async () => {
+    try {
+      const data = await apiCall('/api/wallet');
+      setWallet(data);
+    } catch (error) {
+      console.error('Failed to fetch wallet:', error);
+    }
+  };
+
+  const fetchWalletPackages = async () => {
+    try {
+      const data = await apiCall('/api/wallet/packages');
+      setWalletPackages(data.packages || {});
+    } catch (error) {
+      console.error('Failed to fetch wallet packages:', error);
+    }
+  };
+
+  const fetchWalletTransactions = async () => {
+    try {
+      const data = await apiCall('/api/wallet/transactions');
+      setWalletTransactions(data.transactions || []);
+    } catch (error) {
+      console.error('Failed to fetch wallet transactions:', error);
+    }
+  };
+
+  // Load data when view changes
+  useEffect(() => {
+    if (currentView === 'dashboard' && token) {
+      fetchTrips();
+      fetchWallet();
+    }
+  }, [currentView, token, tripType]);
+
+  useEffect(() => {
+    if (currentView === 'my-trips' && token) {
+      fetchUserTrips();
+    }
+  }, [currentView, token]);
+
+  useEffect(() => {
+    if (currentView === 'wallet' && token) {
+      fetchWallet();
+      fetchWalletPackages();
+      fetchWalletTransactions();
+    }
+  }, [currentView, token]);
+
+  useEffect(() => {
+    if (currentView === 'home' && token) {
+      fetchWallet();
+    }
+  }, [currentView, token]);
 
   const login = async (e) => {
     e.preventDefault();
@@ -405,7 +324,7 @@ function App() {
       setToken(data.token);
       setUser(data.user);
       localStorage.setItem('token', data.token);
-      setCurrentView('dashboard');
+      setCurrentView('home');
     } catch (error) {
       alert('Login failed: ' + error.message);
     } finally {
@@ -424,7 +343,7 @@ function App() {
       setToken(data.token);
       setUser(data.user);
       localStorage.setItem('token', data.token);
-      setCurrentView('dashboard');
+      setCurrentView('home');
     } catch (error) {
       alert('Registration failed: ' + error.message);
     } finally {
@@ -439,6 +358,67 @@ function App() {
     setCurrentView('login');
   };
 
+  const topUpWallet = async (packageId) => {
+    try {
+      setLoading(true);
+      const data = await apiCall('/api/wallet/topup', {
+        method: 'POST',
+        body: JSON.stringify({
+          package_id: packageId,
+          origin_url: window.location.origin
+        })
+      });
+      
+      // Redirect to Stripe checkout
+      window.location.href = data.url;
+    } catch (error) {
+      alert('Top-up failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Check for payment success on wallet page
+  useEffect(() => {
+    if (currentView === 'wallet') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get('session_id');
+      
+      if (sessionId) {
+        checkPaymentStatus(sessionId);
+      }
+    }
+  }, [currentView]);
+
+  const checkPaymentStatus = async (sessionId, attempts = 0) => {
+    const maxAttempts = 5;
+    const pollInterval = 2000;
+
+    if (attempts >= maxAttempts) {
+      alert('Payment status check timed out. Please refresh the page.');
+      return;
+    }
+
+    try {
+      const data = await apiCall(`/api/wallet/payment/status/${sessionId}`);
+      
+      if (data.payment_status === 'paid') {
+        alert('Payment successful! Your wallet has been topped up.');
+        fetchWallet();
+        fetchWalletTransactions();
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      } else if (data.status === 'expired') {
+        alert('Payment session expired. Please try again.');
+        return;
+      }
+
+      setTimeout(() => checkPaymentStatus(sessionId, attempts + 1), pollInterval);
+    } catch (error) {
+      console.error('Error checking payment status:', error);
+    }
+  };
+
   const createTrip = async (e) => {
     e.preventDefault();
     
@@ -448,7 +428,7 @@ function App() {
         alert('Please select both origin and destination locations');
         return;
       }
-      endpoint = '/api/trips/taxi';
+      endpoint = '/api/trips';
       formData = {
         origin: tripForm.origin,
         destination: tripForm.destination,
@@ -502,13 +482,12 @@ function App() {
     }
   };
 
-  const bookTrip = async (tripId, useHomeAddress = false) => {
+  const bookTrip = async (tripId) => {
     try {
       setLoading(true);
       const trip = trips.find(t => t.id === tripId);
       
       if (trip?.trip_type === 'personal_car') {
-        // For personal car trips, create a join request
         await apiCall(`/api/trips/${tripId}/join-request`, {
           method: 'POST',
           body: JSON.stringify({
@@ -517,10 +496,12 @@ function App() {
         });
         alert('Join request sent successfully!');
       } else {
-        // For taxi trips, book directly
-        const bookingData = { trip_id: tripId };
+        const bookingData = { 
+          trip_id: tripId,
+          payment_method: bookingForm.payment_method || 'wallet'
+        };
         
-        if (useHomeAddress && bookingForm.home_address) {
+        if (bookingForm.home_address) {
           bookingData.home_address = bookingForm.home_address;
         } else if (bookingForm.pickup_location) {
           bookingData.pickup_location = bookingForm.pickup_location;
@@ -533,6 +514,7 @@ function App() {
         alert('Trip booked successfully!');
       }
       fetchTrips();
+      fetchWallet();
     } catch (error) {
       alert('Error: ' + error.message);
     } finally {
@@ -571,489 +553,8 @@ function App() {
     return `${hours}h ${remainingMinutes}min`;
   };
 
-  const renderLogin = () => (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-700 to-red-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-700 mb-2">Turkish Airlines</h1>
-          <p className="text-gray-600">Smart Car Pooling for Personnel</p>
-        </div>
-        
-        <form onSubmit={login} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={loginForm.email}
-              onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              value={loginForm.password}
-              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
-        
-        <p className="text-center mt-4 text-sm text-gray-600">
-          Don't have an account?{' '}
-          <button
-            onClick={() => setCurrentView('register')}
-            className="text-red-600 hover:text-red-800 font-medium"
-          >
-            Register
-          </button>
-        </p>
-      </div>
-    </div>
-  );
-
-  const renderRegister = () => (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-700 to-red-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-700 mb-2">Register</h1>
-          <p className="text-gray-600">Turkish Airlines Personnel</p>
-        </div>
-        
-        <form onSubmit={register} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-            <input
-              type="text"
-              value={registerForm.name}
-              onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={registerForm.email}
-              onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-            <input
-              type="tel"
-              value={registerForm.phone}
-              onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
-            <input
-              type="text"
-              value={registerForm.employee_id}
-              onChange={(e) => setRegisterForm({ ...registerForm, employee_id: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-            <input
-              type="text"
-              value={registerForm.department}
-              onChange={(e) => setRegisterForm({ ...registerForm, department: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              value={registerForm.password}
-              onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
-          >
-            {loading ? 'Registering...' : 'Register'}
-          </button>
-        </form>
-        
-        <p className="text-center mt-4 text-sm text-gray-600">
-          Already have an account?{' '}
-          <button
-            onClick={() => setCurrentView('login')}
-            className="text-red-600 hover:text-red-800 font-medium"
-          >
-            Login
-          </button>
-        </p>
-      </div>
-    </div>
-  );
-
-  const renderDashboard = () => (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-red-600 text-white p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Turkish Airlines Smart Car Pooling</h1>
-          <div className="flex items-center space-x-4">
-            <span>Welcome, {user?.name}</span>
-            <button
-              onClick={() => setCurrentView('create-trip')}
-              className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-md"
-            >
-              Create Trip
-            </button>
-            <button
-              onClick={() => setCurrentView('my-trips')}
-              className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-md"
-            >
-              My Trips
-            </button>
-            <button
-              onClick={logout}
-              className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-md"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
-      
-      <div className="container mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Trips List */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Available Trips</h2>
-              <button
-                onClick={fetchTrips}
-                disabled={loading}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md disabled:opacity-50"
-              >
-                {loading ? 'Loading...' : 'Refresh'}
-              </button>
-            </div>
-            
-            {trips.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No trips available. Create the first one!</p>
-            ) : (
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {trips.map((trip) => (
-                  <div
-                    key={trip.id}
-                    className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${
-                      selectedTrip?.id === trip.id ? 'ring-2 ring-red-500' : ''
-                    }`}
-                    onClick={() => setSelectedTrip(trip)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <span className="font-semibold text-lg">{trip.origin.address}</span>
-                          <span className="text-gray-400">→</span>
-                          <span className="font-semibold text-lg">{trip.destination.address}</span>
-                        </div>
-                        <div className="text-sm text-gray-600 space-y-1">
-                          <p><strong>Departure:</strong> {formatDateTime(trip.departure_time)}</p>
-                          <p><strong>Created by:</strong> {trip.creator_name}</p>
-                          <p><strong>Available seats:</strong> {trip.available_seats}/{trip.max_riders}</p>
-                          <p><strong>Price per person:</strong> ₺{trip.price_per_person}</p>
-                          {trip.distance_km > 0 && (
-                            <p><strong>Distance:</strong> {formatDistance(trip.distance_km)} • {formatDuration(trip.duration_minutes)}</p>
-                          )}
-                          {trip.notes && <p><strong>Notes:</strong> {trip.notes}</p>}
-                        </div>
-                      </div>
-                      <div className="flex flex-col space-y-2">
-                        {trip.available_seats > 0 && !trip.is_creator && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              bookTrip(trip.id);
-                            }}
-                            disabled={loading}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md disabled:opacity-50"
-                          >
-                            Book Trip
-                          </button>
-                        )}
-                        {trip.is_creator && (
-                          <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                            Your Trip
-                          </span>
-                        )}
-                        {trip.available_seats === 0 && (
-                          <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm">
-                            Full
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          
-          {/* Map */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Trip Map</h3>
-            <TripMap
-              trips={trips}
-              selectedTrip={selectedTrip}
-              onTripSelect={setSelectedTrip}
-              userLocation={userLocation}
-            />
-            {selectedTrip && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-bold text-gray-800 mb-2">Selected Trip</h4>
-                <p className="text-sm text-gray-600">
-                  <strong>Route:</strong> {selectedTrip.origin.address} → {selectedTrip.destination.address}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <strong>Creator:</strong> {selectedTrip.creator_name}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <strong>Departure:</strong> {formatDateTime(selectedTrip.departure_time)}
-                </p>
-                {selectedTrip.distance_km > 0 && (
-                  <p className="text-sm text-gray-600">
-                    <strong>Distance:</strong> {formatDistance(selectedTrip.distance_km)} • {formatDuration(selectedTrip.duration_minutes)}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderCreateTrip = () => (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-red-600 text-white p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Create New Trip</h1>
-          <button
-            onClick={() => setCurrentView('dashboard')}
-            className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-md"
-          >
-            Back to Dashboard
-          </button>
-        </div>
-      </nav>
-      
-      <div className="container mx-auto p-6">
-        <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl mx-auto">
-          <form onSubmit={createTrip} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Origin</label>
-              <LocationAutocomplete
-                onPlaceSelect={(location) => setTripForm({ ...tripForm, origin: location })}
-                placeholder="Select trip origin (e.g., Istanbul Airport)"
-              />
-              {tripForm.origin && (
-                <p className="text-sm text-gray-600 mt-1">Selected: {tripForm.origin.address}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
-              <LocationAutocomplete
-                onPlaceSelect={(location) => setTripForm({ ...tripForm, destination: location })}
-                placeholder="Select trip destination (e.g., City Center)"
-              />
-              {tripForm.destination && (
-                <p className="text-sm text-gray-600 mt-1">Selected: {tripForm.destination.address}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Departure Time</label>
-              <input
-                type="datetime-local"
-                value={tripForm.departure_time}
-                onChange={(e) => setTripForm({ ...tripForm, departure_time: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Available Seats</label>
-              <select
-                value={tripForm.available_seats}
-                onChange={(e) => setTripForm({ ...tripForm, available_seats: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                <option value={1}>1</option>
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Price per Person (₺)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={tripForm.price_per_person}
-                onChange={(e) => setTripForm({ ...tripForm, price_per_person: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="0.00"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
-              <textarea
-                value={tripForm.notes}
-                onChange={(e) => setTripForm({ ...tripForm, notes: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                rows="3"
-                placeholder="Any additional information..."
-              />
-            </div>
-            
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
-            >
-              {loading ? 'Creating Trip...' : 'Create Trip'}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderMyTrips = () => {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-red-600 text-white p-4">
-          <div className="container mx-auto flex justify-between items-center">
-            <h1 className="text-2xl font-bold">My Trips</h1>
-            <button
-              onClick={() => setCurrentView('dashboard')}
-              className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded-md"
-            >
-              Back to Dashboard
-            </button>
-          </div>
-        </nav>
-        
-        <div className="container mx-auto p-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-bold mb-4 text-gray-800">Trips I Created</h3>
-              {userTrips.created_trips.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No trips created yet.</p>
-              ) : (
-                <div className="space-y-4">
-                  {userTrips.created_trips.map((trip) => (
-                    <div key={trip.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-semibold">{trip.origin.address} → {trip.destination.address}</p>
-                          <p className="text-sm text-gray-600">{formatDateTime(trip.departure_time)}</p>
-                        </div>
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          trip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {trip.status}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Bookings: {trip.bookings} | Available: {trip.available_seats}
-                      </p>
-                      <p className="text-sm text-gray-600 mb-2">Price: ₺{trip.price_per_person}</p>
-                      {trip.distance_km > 0 && (
-                        <p className="text-sm text-gray-600 mb-3">
-                          Distance: {formatDistance(trip.distance_km)} • {formatDuration(trip.duration_minutes)}
-                        </p>
-                      )}
-                      {trip.status === 'active' && (
-                        <button
-                          onClick={() => cancelTrip(trip.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
-                        >
-                          Cancel Trip
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-bold mb-4 text-gray-800">Trips I Booked</h3>
-              {userTrips.booked_trips.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No trips booked yet.</p>
-              ) : (
-                <div className="space-y-4">
-                  {userTrips.booked_trips.map((trip) => (
-                    <div key={trip.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-semibold">{trip.origin.address} → {trip.destination.address}</p>
-                          <p className="text-sm text-gray-600">{formatDateTime(trip.departure_time)}</p>
-                        </div>
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          trip.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {trip.status}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">Created by: {trip.creator_name}</p>
-                      <p className="text-sm text-gray-600 mb-2">Price: ₺{trip.price_per_person}</p>
-                      {trip.distance_km > 0 && (
-                        <p className="text-sm text-gray-600">
-                          Distance: {formatDistance(trip.distance_km)} • {formatDuration(trip.duration_minutes)}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const formatCurrency = (amount) => {
+    return `₺${parseFloat(amount).toFixed(2)}`;
   };
 
   const renderLogin = () => (
@@ -1213,6 +714,7 @@ function App() {
           <h1 className="text-3xl font-bold text-red-700 mb-2">Turkish Airlines</h1>
           <p className="text-gray-600">Choose Your Transportation</p>
           <p className="text-sm text-gray-500 mt-2">Welcome, {user?.name}</p>
+          <p className="text-sm text-green-600 mt-1">Wallet: {formatCurrency(wallet.balance)}</p>
         </div>
         
         <div className="space-y-4">
@@ -1249,6 +751,12 @@ function App() {
         
         <div className="mt-6 pt-4 border-t border-gray-200">
           <button
+            onClick={() => setCurrentView('wallet')}
+            className="w-full text-green-600 hover:text-green-800 font-medium py-2 mb-2"
+          >
+            💰 Manage Wallet ({formatCurrency(wallet.balance)})
+          </button>
+          <button
             onClick={() => setCurrentView('my-trips')}
             className="w-full text-red-600 hover:text-red-800 font-medium py-2"
           >
@@ -1284,7 +792,6 @@ function App() {
       
       <div className="container mx-auto p-6">
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Wallet Balance & Top-up */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-xl font-bold mb-4 text-gray-800">Wallet Balance</h3>
             <div className="text-center mb-6">
@@ -1310,7 +817,6 @@ function App() {
             </div>
           </div>
           
-          {/* Transaction History */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-xl font-bold mb-4 text-gray-800">Transaction History</h3>
             {walletTransactions.length === 0 ? (
@@ -1389,7 +895,6 @@ function App() {
       
       <div className="container mx-auto p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Trips List */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-800">
@@ -1474,7 +979,6 @@ function App() {
             )}
           </div>
           
-          {/* Map */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-xl font-bold mb-4 text-gray-800">Trip Map</h3>
             <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
@@ -1791,222 +1295,6 @@ function App() {
       </div>
     );
   };
-
-  const renderLogin = () => (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-700 to-red-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-700 mb-2">Turkish Airlines</h1>
-          <p className="text-gray-600">Smart Car Pooling for Personnel</p>
-        </div>
-        
-        <form onSubmit={login} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={loginForm.email}
-              onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              value={loginForm.password}
-              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
-        
-        <p className="text-center mt-4 text-sm text-gray-600">
-          Don't have an account?{' '}
-          <button
-            onClick={() => setCurrentView('register')}
-            className="text-red-600 hover:text-red-800 font-medium"
-          >
-            Register
-          </button>
-        </p>
-      </div>
-    </div>
-  );
-
-  const renderRegister = () => (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-700 to-red-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-700 mb-2">Register</h1>
-          <p className="text-gray-600">Turkish Airlines Personnel</p>
-        </div>
-        
-        <form onSubmit={register} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-            <input
-              type="text"
-              value={registerForm.name}
-              onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={registerForm.email}
-              onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-            <input
-              type="tel"
-              value={registerForm.phone}
-              onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
-            <input
-              type="text"
-              value={registerForm.employee_id}
-              onChange={(e) => setRegisterForm({ ...registerForm, employee_id: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-            <input
-              type="text"
-              value={registerForm.department}
-              onChange={(e) => setRegisterForm({ ...registerForm, department: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              value={registerForm.password}
-              onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-          
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
-          >
-            {loading ? 'Registering...' : 'Register'}
-          </button>
-        </form>
-        
-        <p className="text-center mt-4 text-sm text-gray-600">
-          Already have an account?{' '}
-          <button
-            onClick={() => setCurrentView('login')}
-            className="text-red-600 hover:text-red-800 font-medium"
-          >
-            Login
-          </button>
-        </p>
-      </div>
-    </div>
-  );
-
-  const renderHome = () => (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-700 to-red-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-700 mb-2">Turkish Airlines</h1>
-          <p className="text-gray-600">Choose Your Transportation</p>
-          <p className="text-sm text-gray-500 mt-2">Welcome, {user?.name}</p>
-          <p className="text-sm text-green-600 mt-1">Wallet: {formatCurrency(wallet.balance)}</p>
-        </div>
-        
-        <div className="space-y-4">
-          <button
-            onClick={() => {
-              setTripType('taxi');
-              setCurrentView('dashboard');
-            }}
-            className="w-full bg-red-600 text-white py-4 px-6 rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center justify-center space-x-3"
-          >
-            <span className="text-2xl">🚕</span>
-            <div className="text-left">
-              <div className="font-semibold">Taxi Sharing</div>
-              <div className="text-sm opacity-90">Share professional taxi rides</div>
-              <div className="text-xs opacity-75">Home pickup available</div>
-            </div>
-          </button>
-          
-          <button
-            onClick={() => {
-              setTripType('personal_car');
-              setCurrentView('dashboard');
-            }}
-            className="w-full bg-green-600 text-white py-4 px-6 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center justify-center space-x-3"
-          >
-            <span className="text-2xl">🚗</span>
-            <div className="text-left">
-              <div className="font-semibold">Personnel Car</div>
-              <div className="text-sm opacity-90">Share rides in personal vehicles</div>
-              <div className="text-xs opacity-75">Bus stop pickup points</div>
-            </div>
-          </button>
-        </div>
-        
-        <div className="mt-6 pt-4 border-t border-gray-200">
-          <button
-            onClick={() => setCurrentView('wallet')}
-            className="w-full text-green-600 hover:text-green-800 font-medium py-2 mb-2"
-          >
-            💰 Manage Wallet ({formatCurrency(wallet.balance)})
-          </button>
-          <button
-            onClick={() => setCurrentView('my-trips')}
-            className="w-full text-red-600 hover:text-red-800 font-medium py-2"
-          >
-            View My Trips
-          </button>
-          <button
-            onClick={logout}
-            className="w-full text-gray-600 hover:text-gray-800 py-2 mt-2"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
   if (currentView === 'login') return renderLogin();
   if (currentView === 'register') return renderRegister();
