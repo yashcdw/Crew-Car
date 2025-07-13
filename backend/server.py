@@ -443,6 +443,180 @@ def check_rider_compatibility(trip_origin: Location, trip_destination: Location,
         return {"compatible": False, "reason": "Error calculating compatibility"}
 
 # API Routes
+# Wallet endpoints
+@app.get("/api/wallet")
+async def get_wallet(current_user: dict = Depends(get_current_user)):
+    """Get user's wallet balance"""
+    wallet = get_or_create_wallet(current_user["id"])
+    return {
+        "user_id": wallet["user_id"],
+        "balance": wallet["balance"],
+        "currency": wallet["currency"],
+        "last_updated": wallet["last_updated"]
+    }
+
+@app.get("/api/wallet/packages")
+async def get_wallet_packages():
+    """Get available wallet top-up packages"""
+    return {"packages": WALLET_PACKAGES}
+
+@app.post("/api/wallet/topup")
+async def create_wallet_topup(request: WalletTopupRequest, current_user: dict = Depends(get_current_user)):
+    """Create a Stripe checkout session for wallet top-up"""
+    if not stripe_checkout:
+        raise HTTPException(status_code=500, detail="Payment service not available")
+    
+    # Validate package
+    if request.package_id not in WALLET_PACKAGES:
+        raise HTTPException(status_code=400, detail="Invalid package")
+    
+    package = WALLET_PACKAGES[request.package_id]
+    amount = package["amount"]
+    currency = package["currency"]
+    
+    # Build success and cancel URLs
+    success_url = f"{request.origin_url}/wallet/success?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{request.origin_url}/wallet"
+    
+    try:
+        # Create checkout session
+        checkout_request = CheckoutSessionRequest(
+            amount=amount,
+            currency=currency,
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                "user_id": current_user["id"],
+                "package_id": request.package_id,
+                "transaction_type": "wallet_topup"
+            }
+        )
+        
+        session = await stripe_checkout.create_checkout_session(checkout_request)
+        
+        # Create transaction record
+        transaction_id = create_wallet_transaction(
+            user_id=current_user["id"],
+            transaction_type="topup",
+            amount=amount,
+            description=f"Wallet top-up - {package['name']}",
+            payment_session_id=session.session_id,
+            status="pending"
+        )
+        
+        return {
+            "url": session.url,
+            "session_id": session.session_id,
+            "transaction_id": transaction_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create checkout session: {str(e)}")
+
+@app.get("/api/wallet/payment/status/{session_id}")
+async def get_wallet_payment_status(session_id: str, current_user: dict = Depends(get_current_user)):
+    """Get the status of a wallet payment session"""
+    if not stripe_checkout:
+        raise HTTPException(status_code=500, detail="Payment service not available")
+    
+    try:
+        # Check transaction exists for this user
+        transaction = payment_transactions_collection.find_one({
+            "payment_session_id": session_id,
+            "user_id": current_user["id"]
+        })
+        
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        
+        # If already processed, return stored status
+        if transaction["status"] in ["completed", "failed"]:
+            return {
+                "status": transaction["status"],
+                "payment_status": "paid" if transaction["status"] == "completed" else "failed",
+                "amount_total": int(transaction["amount"] * 100),  # Convert to cents
+                "currency": transaction["currency"]
+            }
+        
+        # Get status from Stripe
+        checkout_status = await stripe_checkout.get_checkout_status(session_id)
+        
+        # Update transaction status
+        if checkout_status.payment_status == "paid" and transaction["status"] != "completed":
+            # Update wallet balance
+            update_wallet_balance(current_user["id"], transaction["amount"], "topup")
+            
+            # Update transaction status
+            payment_transactions_collection.update_one(
+                {"payment_session_id": session_id},
+                {"$set": {"status": "completed"}}
+            )
+            
+        elif checkout_status.status == "expired":
+            payment_transactions_collection.update_one(
+                {"payment_session_id": session_id},
+                {"$set": {"status": "failed"}}
+            )
+        
+        return {
+            "status": checkout_status.status,
+            "payment_status": checkout_status.payment_status,
+            "amount_total": checkout_status.amount_total,
+            "currency": checkout_status.currency
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check payment status: {str(e)}")
+
+@app.get("/api/wallet/transactions")
+async def get_wallet_transactions(current_user: dict = Depends(get_current_user)):
+    """Get user's wallet transaction history"""
+    transactions = list(payment_transactions_collection.find({"user_id": current_user["id"]}).sort("created_at", -1))
+    
+    transaction_list = []
+    for transaction in transactions:
+        transaction_list.append({
+            "id": transaction["id"],
+            "transaction_type": transaction["transaction_type"],
+            "amount": transaction["amount"],
+            "currency": transaction["currency"],
+            "description": transaction["description"],
+            "status": transaction["status"],
+            "created_at": transaction["created_at"]
+        })
+    
+    return {"transactions": transaction_list}
+
+@app.post("/api/wallet/pay")
+async def pay_with_wallet(request: WalletPaymentRequest, current_user: dict = Depends(get_current_user)):
+    """Make a payment using wallet balance"""
+    wallet = get_or_create_wallet(current_user["id"])
+    
+    if wallet["balance"] < request.amount:
+        raise HTTPException(status_code=400, detail="Insufficient wallet balance")
+    
+    try:
+        # Update wallet balance
+        update_wallet_balance(current_user["id"], request.amount, "payment")
+        
+        # Create transaction record
+        transaction_id = create_wallet_transaction(
+            user_id=current_user["id"],
+            transaction_type="payment",
+            amount=request.amount,
+            description=request.description,
+            status="completed"
+        )
+        
+        return {
+            "message": "Payment successful",
+            "transaction_id": transaction_id,
+            "remaining_balance": wallet["balance"] - request.amount
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Payment failed: {str(e)}")
+
 # WebSocket endpoint
 @app.websocket("/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str):
