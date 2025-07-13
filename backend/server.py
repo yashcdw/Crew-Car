@@ -422,9 +422,24 @@ async def get_trip_details(trip_id: str, current_user: dict = Depends(get_curren
         
         booking_details.append(booking_info)
     
-    # Convert Location dicts back to Location objects for response
-    origin = Location(**trip["origin"])
-    destination = Location(**trip["destination"])
+    # Handle both old string format and new Location format
+    try:
+        if isinstance(trip["origin"], str):
+            origin = Location(address=trip["origin"], coordinates={"lat": 0, "lng": 0})
+        else:
+            origin = Location(**trip["origin"])
+    except Exception as e:
+        print(f"Error parsing origin: {e}")
+        origin = Location(address=str(trip["origin"]), coordinates={"lat": 0, "lng": 0})
+    
+    try:
+        if isinstance(trip["destination"], str):
+            destination = Location(address=trip["destination"], coordinates={"lat": 0, "lng": 0})
+        else:
+            destination = Location(**trip["destination"])
+    except Exception as e:
+        print(f"Error parsing destination: {e}")
+        destination = Location(address=str(trip["destination"]), coordinates={"lat": 0, "lng": 0})
     
     trip_data = {
         "id": trip["id"],
