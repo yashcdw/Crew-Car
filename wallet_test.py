@@ -43,6 +43,16 @@ class WalletFunctionalityTest(unittest.TestCase):
             "price_per_person": 75.0,
             "notes": "Airport transfer for Turkish Airlines staff"
         }
+        
+        # Second user for booking tests
+        self.test_user2 = {
+            "name": f"Fatma Demir {self.test_id}",
+            "email": f"fatma.demir{self.test_id}@turkishairlines.com",
+            "phone": f"+905559876{self.test_id[:3]}",
+            "employee_id": f"TK2{self.test_id}",
+            "department": "Cabin Crew",
+            "password": "SecurePass456!"
+        }
 
     def api_call(self, endpoint, method="GET", data=None, token=None):
         url = f"{self.base_url}{endpoint}"
