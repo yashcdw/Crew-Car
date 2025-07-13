@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "I need you to test the updated payment method functionality for the Turkish Airlines carpooling app. I just implemented differentiated payment methods: Taxi trips can use cash, card, OR wallet; Personal car trips can ONLY use wallet."
+user_problem_statement: "I need you to test the updated Turkish Airlines carpooling app backend with the new location and airport features I just implemented."
 
 backend:
   - task: "User registration and automatic wallet creation"
