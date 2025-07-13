@@ -158,9 +158,9 @@ class LocationAirportFeaturesTest(unittest.TestCase):
         self.assertIsNone(data["user"]["home_address"])
         
         # Save token and user_id for subsequent tests
-        self.token2 = data["token"]
-        self.user_id2 = data["user"]["id"]
-        print(f"✅ User registration without home address passed - User ID: {self.user_id2}")
+        LocationAirportFeaturesTest.token2 = data["token"]
+        LocationAirportFeaturesTest.user_id2 = data["user"]["id"]
+        print(f"✅ User registration without home address passed - User ID: {LocationAirportFeaturesTest.user_id2}")
 
     def test_03_get_profile_with_home_address(self):
         """Test getting user profile with home address"""
