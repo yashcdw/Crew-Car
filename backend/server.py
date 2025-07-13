@@ -239,6 +239,10 @@ class JoinRequestCreate(BaseModel):
     pickup_bus_stop_id: Optional[str] = None
     message: Optional[str] = None
 
+class CallRequest(BaseModel):
+    to_user_id: str
+    trip_id: Optional[str] = None
+
 # Helper functions
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
