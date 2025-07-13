@@ -3,12 +3,13 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 import os
 import uuid
 import hashlib
 import jwt
+import googlemaps
 from bson import ObjectId
 
 # Initialize FastAPI app
@@ -36,6 +37,10 @@ bookings_collection = db.bookings
 # JWT Secret
 JWT_SECRET = "your-secret-key-here"
 
+# Google Maps client
+GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
+gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY) if GOOGLE_MAPS_API_KEY else None
+
 # Security
 security = HTTPBearer()
 
@@ -60,9 +65,14 @@ class User(BaseModel):
     employee_id: str
     department: str
 
+class Location(BaseModel):
+    address: str
+    coordinates: Dict[str, float]  # {lat: float, lng: float}
+    place_id: Optional[str] = None
+
 class TripCreate(BaseModel):
-    origin: str
-    destination: str
+    origin: Location
+    destination: Location
     departure_time: datetime
     available_seats: int = Field(default=3, le=3)
     price_per_person: float
@@ -72,8 +82,8 @@ class Trip(BaseModel):
     id: str
     creator_id: str
     creator_name: str
-    origin: str
-    destination: str
+    origin: Location
+    destination: Location
     departure_time: datetime
     available_seats: int
     max_riders: int = 3
@@ -81,10 +91,14 @@ class Trip(BaseModel):
     notes: Optional[str] = None
     status: str = "active"
     created_at: datetime
+    distance_km: Optional[float] = None
+    duration_minutes: Optional[int] = None
+    route_polyline: Optional[str] = None
     bookings: List[dict] = []
 
 class BookingCreate(BaseModel):
     trip_id: str
+    pickup_location: Optional[Location] = None
 
 class Booking(BaseModel):
     id: str
@@ -92,7 +106,27 @@ class Booking(BaseModel):
     user_id: str
     user_name: str
     booking_time: datetime
+    pickup_location: Optional[Location] = None
+    additional_time_minutes: Optional[float] = None
     status: str = "confirmed"
+
+class LocationRequest(BaseModel):
+    address: str
+
+class DistanceRequest(BaseModel):
+    origins: List[str]
+    destinations: List[str]
+
+class DirectionsRequest(BaseModel):
+    origin: str
+    destination: str
+    waypoints: Optional[List[str]] = None
+
+class RiderMatchRequest(BaseModel):
+    rider_location: str
+    trip_origin: str
+    trip_destination: str
+    max_detour_minutes: int = 7
 
 # Helper functions
 def hash_password(password: str) -> str:
@@ -125,6 +159,76 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+def calculate_trip_route(origin: Location, destination: Location) -> dict:
+    """Calculate route information using Google Maps"""
+    if not gmaps:
+        return {"distance_km": 0, "duration_minutes": 0, "route_polyline": ""}
+    
+    try:
+        directions_result = gmaps.directions(
+            origin=f"{origin.coordinates['lat']},{origin.coordinates['lng']}",
+            destination=f"{destination.coordinates['lat']},{destination.coordinates['lng']}",
+            mode="driving"
+        )
+        
+        if directions_result and len(directions_result) > 0:
+            route = directions_result[0]
+            leg = route["legs"][0]
+            
+            return {
+                "distance_km": leg["distance"]["value"] / 1000,  # Convert meters to km
+                "duration_minutes": leg["duration"]["value"] / 60,  # Convert seconds to minutes
+                "route_polyline": route["overview_polyline"]["points"]
+            }
+    except Exception as e:
+        print(f"Error calculating route: {e}")
+    
+    return {"distance_km": 0, "duration_minutes": 0, "route_polyline": ""}
+
+def check_rider_compatibility(trip_origin: Location, trip_destination: Location, rider_location: Location, max_detour_minutes: int = 7) -> dict:
+    """Check if a rider location is compatible with a trip"""
+    if not gmaps:
+        return {"compatible": False, "reason": "Maps service not available"}
+    
+    try:
+        # Calculate original route
+        original_directions = gmaps.directions(
+            origin=f"{trip_origin.coordinates['lat']},{trip_origin.coordinates['lng']}",
+            destination=f"{trip_destination.coordinates['lat']},{trip_destination.coordinates['lng']}",
+            mode="driving"
+        )
+        
+        if not original_directions:
+            return {"compatible": False, "reason": "Original route not found"}
+        
+        original_duration = original_directions[0]["legs"][0]["duration"]["value"]
+        
+        # Calculate detour route
+        detour_directions = gmaps.directions(
+            origin=f"{trip_origin.coordinates['lat']},{trip_origin.coordinates['lng']}",
+            destination=f"{trip_destination.coordinates['lat']},{trip_destination.coordinates['lng']}",
+            waypoints=[f"{rider_location.coordinates['lat']},{rider_location.coordinates['lng']}"],
+            mode="driving"
+        )
+        
+        if not detour_directions:
+            return {"compatible": False, "reason": "Detour route not found"}
+        
+        detour_duration = sum(leg["duration"]["value"] for leg in detour_directions[0]["legs"])
+        additional_time = (detour_duration - original_duration) / 60  # Convert to minutes
+        
+        compatible = additional_time <= max_detour_minutes
+        
+        return {
+            "compatible": compatible,
+            "original_duration_minutes": original_duration / 60,
+            "detour_duration_minutes": detour_duration / 60,
+            "additional_time_minutes": additional_time
+        }
+    except Exception as e:
+        print(f"Error checking rider compatibility: {e}")
+        return {"compatible": False, "reason": "Error calculating compatibility"}
 
 # API Routes
 @app.get("/api/health")
@@ -207,19 +311,26 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
 @app.post("/api/trips")
 async def create_trip(trip_data: TripCreate, current_user: dict = Depends(get_current_user)):
     trip_id = str(uuid.uuid4())
+    
+    # Calculate route information
+    route_info = calculate_trip_route(trip_data.origin, trip_data.destination)
+    
     trip = {
         "id": trip_id,
         "creator_id": current_user["id"],
         "creator_name": current_user["name"],
-        "origin": trip_data.origin,
-        "destination": trip_data.destination,
+        "origin": trip_data.origin.dict(),
+        "destination": trip_data.destination.dict(),
         "departure_time": trip_data.departure_time,
         "available_seats": trip_data.available_seats,
         "max_riders": 3,
         "price_per_person": trip_data.price_per_person,
         "notes": trip_data.notes,
         "status": "active",
-        "created_at": datetime.utcnow()
+        "created_at": datetime.utcnow(),
+        "distance_km": route_info.get("distance_km", 0),
+        "duration_minutes": route_info.get("duration_minutes", 0),
+        "route_polyline": route_info.get("route_polyline", "")
     }
     
     trips_collection.insert_one(trip)
@@ -235,12 +346,16 @@ async def get_available_trips(current_user: dict = Depends(get_current_user)):
         # Get bookings for this trip
         bookings = list(bookings_collection.find({"trip_id": trip["id"], "status": "confirmed"}))
         
+        # Convert Location dicts back to Location objects for response
+        origin = Location(**trip["origin"])
+        destination = Location(**trip["destination"])
+        
         trip_data = {
             "id": trip["id"],
             "creator_id": trip["creator_id"],
             "creator_name": trip["creator_name"],
-            "origin": trip["origin"],
-            "destination": trip["destination"],
+            "origin": origin,
+            "destination": destination,
             "departure_time": trip["departure_time"],
             "available_seats": trip["available_seats"] - len(bookings),
             "max_riders": trip["max_riders"],
@@ -248,6 +363,9 @@ async def get_available_trips(current_user: dict = Depends(get_current_user)):
             "notes": trip.get("notes", ""),
             "status": trip["status"],
             "created_at": trip["created_at"],
+            "distance_km": trip.get("distance_km", 0),
+            "duration_minutes": trip.get("duration_minutes", 0),
+            "route_polyline": trip.get("route_polyline", ""),
             "bookings": len(bookings),
             "is_creator": trip["creator_id"] == current_user["id"]
         }
@@ -267,19 +385,29 @@ async def get_trip_details(trip_id: str, current_user: dict = Depends(get_curren
     
     for booking in bookings:
         user = users_collection.find_one({"id": booking["user_id"]})
-        booking_details.append({
+        booking_info = {
             "id": booking["id"],
             "user_name": user["name"] if user else "Unknown",
             "user_phone": user["phone"] if user else "",
-            "booking_time": booking["booking_time"]
-        })
+            "booking_time": booking["booking_time"],
+            "additional_time_minutes": booking.get("additional_time_minutes", 0)
+        }
+        
+        if "pickup_location" in booking and booking["pickup_location"]:
+            booking_info["pickup_location"] = Location(**booking["pickup_location"])
+        
+        booking_details.append(booking_info)
+    
+    # Convert Location dicts back to Location objects for response
+    origin = Location(**trip["origin"])
+    destination = Location(**trip["destination"])
     
     trip_data = {
         "id": trip["id"],
         "creator_id": trip["creator_id"],
         "creator_name": trip["creator_name"],
-        "origin": trip["origin"],
-        "destination": trip["destination"],
+        "origin": origin,
+        "destination": destination,
         "departure_time": trip["departure_time"],
         "available_seats": trip["available_seats"] - len(bookings),
         "max_riders": trip["max_riders"],
@@ -287,6 +415,9 @@ async def get_trip_details(trip_id: str, current_user: dict = Depends(get_curren
         "notes": trip.get("notes", ""),
         "status": trip["status"],
         "created_at": trip["created_at"],
+        "distance_km": trip.get("distance_km", 0),
+        "duration_minutes": trip.get("duration_minutes", 0),
+        "route_polyline": trip.get("route_polyline", ""),
         "bookings": booking_details,
         "is_creator": trip["creator_id"] == current_user["id"]
     }
@@ -294,7 +425,7 @@ async def get_trip_details(trip_id: str, current_user: dict = Depends(get_curren
     return trip_data
 
 @app.post("/api/trips/{trip_id}/book")
-async def book_trip(trip_id: str, current_user: dict = Depends(get_current_user)):
+async def book_trip(trip_id: str, booking_data: BookingCreate, current_user: dict = Depends(get_current_user)):
     trip = trips_collection.find_one({"id": trip_id})
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
@@ -321,6 +452,18 @@ async def book_trip(trip_id: str, current_user: dict = Depends(get_current_user)
     if current_bookings >= trip["available_seats"]:
         raise HTTPException(status_code=400, detail="No available seats")
     
+    # Calculate additional time if pickup location is provided
+    additional_time_minutes = 0
+    if booking_data.pickup_location:
+        trip_origin = Location(**trip["origin"])
+        trip_destination = Location(**trip["destination"])
+        compatibility = check_rider_compatibility(
+            trip_origin, trip_destination, booking_data.pickup_location, max_detour_minutes=30
+        )
+        if not compatibility["compatible"]:
+            raise HTTPException(status_code=400, detail="Pickup location adds too much detour time")
+        additional_time_minutes = compatibility["additional_time_minutes"]
+    
     # Create booking
     booking_id = str(uuid.uuid4())
     booking = {
@@ -329,8 +472,12 @@ async def book_trip(trip_id: str, current_user: dict = Depends(get_current_user)
         "user_id": current_user["id"],
         "user_name": current_user["name"],
         "booking_time": datetime.utcnow(),
+        "additional_time_minutes": additional_time_minutes,
         "status": "confirmed"
     }
+    
+    if booking_data.pickup_location:
+        booking["pickup_location"] = booking_data.pickup_location.dict()
     
     bookings_collection.insert_one(booking)
     
@@ -351,12 +498,14 @@ async def get_user_trips(current_user: dict = Depends(get_current_user)):
         bookings = list(bookings_collection.find({"trip_id": trip["id"], "status": "confirmed"}))
         created_list.append({
             "id": trip["id"],
-            "origin": trip["origin"],
-            "destination": trip["destination"],
+            "origin": Location(**trip["origin"]),
+            "destination": Location(**trip["destination"]),
             "departure_time": trip["departure_time"],
             "available_seats": trip["available_seats"] - len(bookings),
             "price_per_person": trip["price_per_person"],
             "status": trip["status"],
+            "distance_km": trip.get("distance_km", 0),
+            "duration_minutes": trip.get("duration_minutes", 0),
             "bookings": len(bookings),
             "type": "created"
         })
@@ -367,11 +516,13 @@ async def get_user_trips(current_user: dict = Depends(get_current_user)):
         booked_list.append({
             "id": trip["id"],
             "creator_name": trip["creator_name"],
-            "origin": trip["origin"],
-            "destination": trip["destination"],
+            "origin": Location(**trip["origin"]),
+            "destination": Location(**trip["destination"]),
             "departure_time": trip["departure_time"],
             "price_per_person": trip["price_per_person"],
             "status": trip["status"],
+            "distance_km": trip.get("distance_km", 0),
+            "duration_minutes": trip.get("duration_minutes", 0),
             "bookings": len(bookings),
             "type": "booked"
         })
@@ -400,6 +551,145 @@ async def cancel_trip(trip_id: str, current_user: dict = Depends(get_current_use
     )
     
     return {"message": "Trip cancelled successfully"}
+
+# Google Maps API endpoints
+@app.post("/api/maps/geocode")
+async def geocode_location(request: LocationRequest):
+    """Convert address to coordinates"""
+    if not gmaps:
+        raise HTTPException(status_code=500, detail="Maps service not available")
+    
+    try:
+        result = gmaps.geocode(request.address)
+        if result:
+            location = result[0]
+            return {
+                "address": location["formatted_address"],
+                "coordinates": location["geometry"]["location"],
+                "place_id": location["place_id"]
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Address not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Geocoding failed: {str(e)}")
+
+@app.post("/api/maps/distance-matrix")
+async def calculate_distances(request: DistanceRequest):
+    """Calculate distances between multiple points"""
+    if not gmaps:
+        raise HTTPException(status_code=500, detail="Maps service not available")
+    
+    try:
+        result = gmaps.distance_matrix(
+            origins=request.origins,
+            destinations=request.destinations,
+            mode="driving",
+            units="metric"
+        )
+        
+        distances = []
+        for i, origin in enumerate(result["origin_addresses"]):
+            for j, destination in enumerate(result["destination_addresses"]):
+                element = result["rows"][i]["elements"][j]
+                if element["status"] == "OK":
+                    distances.append({
+                        "origin": origin,
+                        "destination": destination,
+                        "distance": element["distance"]["text"],
+                        "distance_value": element["distance"]["value"],
+                        "duration": element["duration"]["text"],
+                        "duration_value": element["duration"]["value"]
+                    })
+        
+        return {"distances": distances}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Distance calculation failed: {str(e)}")
+
+@app.post("/api/maps/directions")
+async def get_directions(request: DirectionsRequest):
+    """Get directions between two points"""
+    if not gmaps:
+        raise HTTPException(status_code=500, detail="Maps service not available")
+    
+    try:
+        result = gmaps.directions(
+            origin=request.origin,
+            destination=request.destination,
+            waypoints=request.waypoints,
+            mode="driving"
+        )
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="No route found")
+        
+        route = result[0]
+        return {
+            "summary": route["summary"],
+            "distance": route["legs"][0]["distance"]["text"],
+            "duration": route["legs"][0]["duration"]["text"],
+            "start_address": route["legs"][0]["start_address"],
+            "end_address": route["legs"][0]["end_address"],
+            "polyline": route["overview_polyline"]["points"],
+            "steps": [
+                {
+                    "instruction": step["html_instructions"],
+                    "distance": step["distance"]["text"],
+                    "duration": step["duration"]["text"]
+                }
+                for step in route["legs"][0]["steps"]
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Directions failed: {str(e)}")
+
+@app.post("/api/maps/rider-matching")
+async def find_compatible_riders(request: RiderMatchRequest):
+    """Find riders within acceptable detour distance"""
+    if not gmaps:
+        raise HTTPException(status_code=500, detail="Maps service not available")
+    
+    try:
+        # Calculate original trip distance and duration
+        original_directions = gmaps.directions(
+            origin=request.trip_origin,
+            destination=request.trip_destination,
+            mode="driving"
+        )
+        
+        if not original_directions:
+            raise HTTPException(status_code=404, detail="Original route not found")
+        
+        original_duration = original_directions[0]["legs"][0]["duration"]["value"]
+        
+        # Calculate detour route
+        detour_directions = gmaps.directions(
+            origin=request.trip_origin,
+            destination=request.trip_destination,
+            waypoints=[request.rider_location],
+            mode="driving"
+        )
+        
+        if not detour_directions:
+            return {"compatible": False, "reason": "No detour route found"}
+        
+        detour_duration = sum(leg["duration"]["value"] for leg in detour_directions[0]["legs"])
+        additional_time = (detour_duration - original_duration) / 60  # Convert to minutes
+        
+        compatible = additional_time <= request.max_detour_minutes
+        
+        return {
+            "compatible": compatible,
+            "original_duration_minutes": original_duration / 60,
+            "detour_duration_minutes": detour_duration / 60,
+            "additional_time_minutes": additional_time,
+            "detour_route": {
+                "polyline": detour_directions[0]["overview_polyline"]["points"],
+                "distance": sum(leg["distance"]["value"] for leg in detour_directions[0]["legs"]),
+                "duration": detour_duration
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Rider matching failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
