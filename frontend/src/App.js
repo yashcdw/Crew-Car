@@ -133,10 +133,25 @@ const TripMap = ({ trips, selectedTrip, onTripSelect, userLocation, liveLocation
           position={trip.origin.coordinates}
           onClick={() => onTripSelect(trip)}
           icon={{
-            url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            url: trip.trip_type === 'personal_car' 
+              ? 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+              : 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
             scaledSize: new window.google.maps.Size(35, 35)
           }}
           title={`${trip.origin.address} → ${trip.destination.address}`}
+        />
+      ))}
+      
+      {/* Live tracking markers */}
+      {liveLocations.map((location) => (
+        <Marker
+          key={location.user_id}
+          position={{ lat: location.latitude, lng: location.longitude }}
+          icon={{
+            url: 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png',
+            scaledSize: new window.google.maps.Size(30, 30)
+          }}
+          title={`${location.user_name} (Live)`}
         />
       ))}
       
