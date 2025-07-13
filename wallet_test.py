@@ -87,7 +87,7 @@ class WalletFunctionalityTest(unittest.TestCase):
     def test_02_get_wallet_balance(self):
         """Test wallet balance retrieval"""
         print("\n2. Testing wallet balance retrieval...")
-        response = self.api_call("/api/wallet", token=self.token)
+        response = self.api_call("/api/wallet", token=WalletFunctionalityTest.token)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         
@@ -97,7 +97,7 @@ class WalletFunctionalityTest(unittest.TestCase):
         self.assertIn("currency", data)
         self.assertIn("last_updated", data)
         
-        self.assertEqual(data["user_id"], self.user_id)
+        self.assertEqual(data["user_id"], WalletFunctionalityTest.user_id)
         self.assertEqual(data["currency"], "try")
         self.assertIsInstance(data["balance"], (int, float))
         
