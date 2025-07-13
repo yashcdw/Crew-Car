@@ -325,7 +325,8 @@ function App() {
       setToken(data.token);
       setUser(data.user);
       localStorage.setItem('token', data.token);
-      setCurrentView('home');
+      setTripType('taxi'); // Default to taxi sharing
+      setCurrentView('dashboard');
     } catch (error) {
       alert('Login failed: ' + error.message);
     } finally {
