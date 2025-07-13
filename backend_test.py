@@ -130,7 +130,76 @@ class TurkishAirlinesCarPoolingAPITest(unittest.TestCase):
         self.assertEqual(data["name"], self.test_user["name"])
         print("✅ Get user profile passed")
 
-    def test_06_create_trip(self):
+    def test_06_google_maps_geocode(self):
+        """Test Google Maps geocoding API"""
+        print("\n6. Testing Google Maps geocoding...")
+        geocode_data = {"address": "Istanbul Airport"}
+        response = self.api_call("/api/maps/geocode", method="POST", data=geocode_data)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("address", data)
+        self.assertIn("coordinates", data)
+        self.assertIn("place_id", data)
+        self.assertIn("lat", data["coordinates"])
+        self.assertIn("lng", data["coordinates"])
+        print("✅ Google Maps geocoding passed")
+
+    def test_07_google_maps_distance_matrix(self):
+        """Test Google Maps distance matrix API"""
+        print("\n7. Testing Google Maps distance matrix...")
+        distance_data = {
+            "origins": ["Istanbul Airport"],
+            "destinations": ["Taksim Square, Istanbul"]
+        }
+        response = self.api_call("/api/maps/distance-matrix", method="POST", data=distance_data)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("distances", data)
+        self.assertGreater(len(data["distances"]), 0)
+        
+        distance_info = data["distances"][0]
+        self.assertIn("distance", distance_info)
+        self.assertIn("duration", distance_info)
+        self.assertIn("distance_value", distance_info)
+        self.assertIn("duration_value", distance_info)
+        print("✅ Google Maps distance matrix passed")
+
+    def test_08_google_maps_directions(self):
+        """Test Google Maps directions API"""
+        print("\n8. Testing Google Maps directions...")
+        directions_data = {
+            "origin": "Istanbul Airport",
+            "destination": "Taksim Square, Istanbul"
+        }
+        response = self.api_call("/api/maps/directions", method="POST", data=directions_data)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("summary", data)
+        self.assertIn("distance", data)
+        self.assertIn("duration", data)
+        self.assertIn("polyline", data)
+        self.assertIn("steps", data)
+        print("✅ Google Maps directions passed")
+
+    def test_09_google_maps_rider_matching(self):
+        """Test Google Maps rider matching API"""
+        print("\n9. Testing Google Maps rider matching...")
+        rider_match_data = {
+            "rider_location": "Levent, Istanbul",
+            "trip_origin": "Istanbul Airport",
+            "trip_destination": "Taksim Square, Istanbul",
+            "max_detour_minutes": 10
+        }
+        response = self.api_call("/api/maps/rider-matching", method="POST", data=rider_match_data)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("compatible", data)
+        self.assertIn("original_duration_minutes", data)
+        self.assertIn("detour_duration_minutes", data)
+        self.assertIn("additional_time_minutes", data)
+        print("✅ Google Maps rider matching passed")
+
+    def test_10_create_trip(self):
         """Test creating a trip"""
         print("\n6. Testing trip creation...")
         response = self.api_call("/api/trips", method="POST", data=self.test_trip, token=self.token)
