@@ -161,7 +161,7 @@ function App() {
   // Form states
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [registerForm, setRegisterForm] = useState({
-    name: '', email: '', phone: '', employee_id: '', department: '', password: ''
+    name: '', email: '', phone: '', employee_id: '', department: '', password: '', home_address: null
   });
   const [tripForm, setTripForm] = useState({
     origin: null, destination: null, departure_time: '', available_seats: 3, price_per_person: '', notes: ''
@@ -173,6 +173,10 @@ function App() {
   const [bookingForm, setBookingForm] = useState({
     pickup_location: null, pickup_bus_stop_id: '', home_address: null, payment_method: 'wallet'
   });
+
+  // Airport trips state
+  const [airportTrips, setAirportTrips] = useState([]);
+  const [showAirportTrips, setShowAirportTrips] = useState(false);
 
   // Check for token on app load
   useEffect(() => {
