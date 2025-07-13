@@ -483,22 +483,23 @@ function App() {
   };
 
   const bookTrip = async (tripId) => {
-    try {
-      setLoading(true);
-      const trip = trips.find(t => t.id === tripId);
+    const trip = trips.find(t => t.id === tripId);
+    
+    if (!trip) {
+      alert('Trip not found');
+      return;
+    }
+
+    // Show payment method selection for taxi trips
+    if (trip.trip_type !== 'personal_car') {
+      const paymentMethod = await showPaymentMethodModal(trip);
+      if (!paymentMethod) return; // User cancelled
       
-      if (trip?.trip_type === 'personal_car') {
-        await apiCall(`/api/trips/${tripId}/join-request`, {
-          method: 'POST',
-          body: JSON.stringify({
-            message: 'I would like to join this trip'
-          })
-        });
-        alert('Join request sent successfully!');
-      } else {
+      try {
+        setLoading(true);
         const bookingData = { 
           trip_id: tripId,
-          payment_method: bookingForm.payment_method || 'wallet'
+          payment_method: paymentMethod
         };
         
         if (bookingForm.home_address) {
@@ -512,14 +513,104 @@ function App() {
           body: JSON.stringify(bookingData)
         });
         alert('Trip booked successfully!');
+        fetchTrips();
+        if (paymentMethod === 'wallet') {
+          fetchWallet(); // Update wallet balance only if wallet was used
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      } finally {
+        setLoading(false);
       }
-      fetchTrips();
-      fetchWallet();
-    } catch (error) {
-      alert('Error: ' + error.message);
-    } finally {
-      setLoading(false);
+    } else {
+      // Personal car trips - create join request
+      try {
+        setLoading(true);
+        await apiCall(`/api/trips/${tripId}/join-request`, {
+          method: 'POST',
+          body: JSON.stringify({
+            message: 'I would like to join this trip'
+          })
+        });
+        alert('Join request sent successfully!');
+        fetchTrips();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      } finally {
+        setLoading(false);
+      }
     }
+  };
+
+  const showPaymentMethodModal = (trip) => {
+    return new Promise((resolve) => {
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+      
+      modal.innerHTML = `
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <h3 class="text-xl font-bold mb-4">Choose Payment Method</h3>
+          <p class="text-gray-600 mb-4">Trip cost: ${formatCurrency(trip.price_per_person)}</p>
+          <div class="space-y-3">
+            <button id="wallet-btn" class="w-full p-3 border-2 border-green-500 text-green-700 rounded-lg hover:bg-green-50 flex items-center justify-between">
+              <span>💰 Wallet Payment</span>
+              <span class="text-sm">${formatCurrency(wallet.balance)} available</span>
+            </button>
+            <button id="cash-btn" class="w-full p-3 border-2 border-blue-500 text-blue-700 rounded-lg hover:bg-blue-50">
+              💵 Cash Payment (Pay driver directly)
+            </button>
+            <button id="card-btn" class="w-full p-3 border-2 border-purple-500 text-purple-700 rounded-lg hover:bg-purple-50">
+              💳 Card Payment (Use taxi terminal)
+            </button>
+          </div>
+          <div class="mt-4 pt-4 border-t">
+            <button id="cancel-btn" class="w-full p-2 text-gray-600 hover:text-gray-800">Cancel</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Disable wallet button if insufficient balance
+      const walletBtn = modal.querySelector('#wallet-btn');
+      if (wallet.balance < trip.price_per_person) {
+        walletBtn.disabled = true;
+        walletBtn.className = walletBtn.className.replace('border-green-500 text-green-700 hover:bg-green-50', 'border-gray-300 text-gray-400 cursor-not-allowed');
+        walletBtn.innerHTML = `
+          <span>💰 Wallet Payment (Insufficient Balance)</span>
+          <span class="text-sm">${formatCurrency(wallet.balance)} available</span>
+        `;
+      }
+      
+      modal.querySelector('#wallet-btn').onclick = () => {
+        if (wallet.balance >= trip.price_per_person) {
+          document.body.removeChild(modal);
+          resolve('wallet');
+        }
+      };
+      
+      modal.querySelector('#cash-btn').onclick = () => {
+        document.body.removeChild(modal);
+        resolve('cash');
+      };
+      
+      modal.querySelector('#card-btn').onclick = () => {
+        document.body.removeChild(modal);
+        resolve('card');
+      };
+      
+      modal.querySelector('#cancel-btn').onclick = () => {
+        document.body.removeChild(modal);
+        resolve(null);
+      };
+      
+      modal.onclick = (e) => {
+        if (e.target === modal) {
+          document.body.removeChild(modal);
+          resolve(null);
+        }
+      };
+    });
   };
 
   const cancelTrip = async (tripId) => {
