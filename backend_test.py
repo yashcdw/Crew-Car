@@ -21,11 +21,19 @@ class TurkishAirlinesCarPoolingAPITest(unittest.TestCase):
             "password": "Test123!"
         }
         
-        # Trip data
+        # Enhanced trip data with Location objects for Phase 2
         tomorrow = datetime.now() + timedelta(days=1)
         self.test_trip = {
-            "origin": "Istanbul Airport",
-            "destination": "Taksim Square",
+            "origin": {
+                "address": "Istanbul Airport (IST), Tayakadın, 34283 Arnavutköy/İstanbul, Turkey",
+                "coordinates": {"lat": 41.2619, "lng": 28.7419},
+                "place_id": "ChIJBVkqGgUJyhQRKEi4iBP7wgM"
+            },
+            "destination": {
+                "address": "Taksim Square, Gümüşsuyu, 34437 Beyoğlu/İstanbul, Turkey", 
+                "coordinates": {"lat": 41.0369, "lng": 28.9850},
+                "place_id": "ChIJrTLr-GyuyhQRc4UqFAgKXA0"
+            },
             "departure_time": tomorrow.isoformat(),
             "available_seats": 3,
             "price_per_person": 50.0,
