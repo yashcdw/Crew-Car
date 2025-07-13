@@ -205,7 +205,7 @@ class WalletFunctionalityTest(unittest.TestCase):
             "origin_url": "https://test.example.com"
         }
         
-        response = self.api_call("/api/wallet/topup", method="POST", data=topup_data, token=self.token)
+        response = self.api_call("/api/wallet/topup", method="POST", data=topup_data, token=WalletFunctionalityTest.token)
         
         # This might fail due to Stripe configuration, but we can check the response structure
         if response.status_code == 500:
