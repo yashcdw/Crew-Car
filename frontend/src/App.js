@@ -1068,11 +1068,221 @@ function App() {
     );
   };
 
+  const renderLogin = () => (
+    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-700 to-red-800 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-red-700 mb-2">Turkish Airlines</h1>
+          <p className="text-gray-600">Smart Car Pooling for Personnel</p>
+        </div>
+        
+        <form onSubmit={login} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={loginForm.email}
+              onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input
+              type="password"
+              value={loginForm.password}
+              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+          
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
+          >
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
+        
+        <p className="text-center mt-4 text-sm text-gray-600">
+          Don't have an account?{' '}
+          <button
+            onClick={() => setCurrentView('register')}
+            className="text-red-600 hover:text-red-800 font-medium"
+          >
+            Register
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+
+  const renderRegister = () => (
+    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-700 to-red-800 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-red-700 mb-2">Register</h1>
+          <p className="text-gray-600">Turkish Airlines Personnel</p>
+        </div>
+        
+        <form onSubmit={register} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <input
+              type="text"
+              value={registerForm.name}
+              onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={registerForm.email}
+              onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <input
+              type="tel"
+              value={registerForm.phone}
+              onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+            <input
+              type="text"
+              value={registerForm.employee_id}
+              onChange={(e) => setRegisterForm({ ...registerForm, employee_id: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+            <input
+              type="text"
+              value={registerForm.department}
+              onChange={(e) => setRegisterForm({ ...registerForm, department: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input
+              type="password"
+              value={registerForm.password}
+              onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+          
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
+          >
+            {loading ? 'Registering...' : 'Register'}
+          </button>
+        </form>
+        
+        <p className="text-center mt-4 text-sm text-gray-600">
+          Already have an account?{' '}
+          <button
+            onClick={() => setCurrentView('login')}
+            className="text-red-600 hover:text-red-800 font-medium"
+          >
+            Login
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+
+  const renderHome = () => (
+    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-700 to-red-800 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-red-700 mb-2">Turkish Airlines</h1>
+          <p className="text-gray-600">Choose Your Transportation</p>
+          <p className="text-sm text-gray-500 mt-2">Welcome, {user?.name}</p>
+        </div>
+        
+        <div className="space-y-4">
+          <button
+            onClick={() => {
+              setTripType('taxi');
+              setCurrentView('dashboard');
+            }}
+            className="w-full bg-red-600 text-white py-4 px-6 rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center justify-center space-x-3"
+          >
+            <span className="text-2xl">🚕</span>
+            <div className="text-left">
+              <div className="font-semibold">Taxi Sharing</div>
+              <div className="text-sm opacity-90">Share professional taxi rides</div>
+              <div className="text-xs opacity-75">Home pickup available</div>
+            </div>
+          </button>
+          
+          <button
+            onClick={() => {
+              setTripType('personal_car');
+              setCurrentView('dashboard');
+            }}
+            className="w-full bg-green-600 text-white py-4 px-6 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center justify-center space-x-3"
+          >
+            <span className="text-2xl">🚗</span>
+            <div className="text-left">
+              <div className="font-semibold">Personnel Car</div>
+              <div className="text-sm opacity-90">Share rides in personal vehicles</div>
+              <div className="text-xs opacity-75">Bus stop pickup points</div>
+            </div>
+          </button>
+        </div>
+        
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <button
+            onClick={() => setCurrentView('my-trips')}
+            className="w-full text-red-600 hover:text-red-800 font-medium py-2"
+          >
+            View My Trips
+          </button>
+          <button
+            onClick={logout}
+            className="w-full text-gray-600 hover:text-gray-800 py-2 mt-2"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   if (currentView === 'login') return renderLogin();
   if (currentView === 'register') return renderRegister();
-  if (currentView === 'create-trip') return renderCreateTrip();
-  if (currentView === 'my-trips') return renderMyTrips();
-  return renderDashboard();
+  if (currentView === 'home') return renderHome();
+  
+  // Add other missing renders for dashboard, create-trip, my-trips
+  return <div>App is loading...</div>;
 }
 
 export default App;
