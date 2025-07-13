@@ -351,9 +351,28 @@ async def get_available_trips(current_user: dict = Depends(get_current_user)):
         # Get bookings for this trip
         bookings = list(bookings_collection.find({"trip_id": trip["id"], "status": "confirmed"}))
         
-        # Convert Location dicts back to Location objects for response
-        origin = Location(**trip["origin"])
-        destination = Location(**trip["destination"])
+        # Handle both old string format and new Location format
+        try:
+            if isinstance(trip["origin"], str):
+                # Old format - create Location object with address only
+                origin = Location(address=trip["origin"], coordinates={"lat": 0, "lng": 0})
+            else:
+                # New format - convert dict to Location object
+                origin = Location(**trip["origin"])
+        except Exception as e:
+            print(f"Error parsing origin: {e}")
+            origin = Location(address=str(trip["origin"]), coordinates={"lat": 0, "lng": 0})
+        
+        try:
+            if isinstance(trip["destination"], str):
+                # Old format - create Location object with address only
+                destination = Location(address=trip["destination"], coordinates={"lat": 0, "lng": 0})
+            else:
+                # New format - convert dict to Location object
+                destination = Location(**trip["destination"])
+        except Exception as e:
+            print(f"Error parsing destination: {e}")
+            destination = Location(address=str(trip["destination"]), coordinates={"lat": 0, "lng": 0})
         
         trip_data = {
             "id": trip["id"],
