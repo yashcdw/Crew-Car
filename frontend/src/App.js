@@ -1222,14 +1222,7 @@ function App() {
         )}
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-3 pb-20">
-          <button
-            onClick={() => setShowBookingModal(true)}
-            className="bg-red-600 text-white p-4 rounded-xl font-medium flex items-center justify-center space-x-2"
-          >
-            <span>🚕</span>
-            <span>Book Taxi</span>
-          </button>
+        <div className="grid grid-cols-1 gap-3 pb-20">
           <button
             onClick={() => setCurrentView('my-trips')}
             className="bg-gray-600 text-white p-4 rounded-xl font-medium flex items-center justify-center space-x-2"
