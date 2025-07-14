@@ -891,7 +891,7 @@ function App() {
         </div>
         <p className="text-center text-xs text-gray-500 mt-2">
           {tripType === 'taxi' ? (
-            'Professional taxi sharing - Split costs with colleagues'
+            'Professional taxi sharing - From home to sky, together'
           ) : (
             'Share rides with personnel traveling your direction'
           )}
