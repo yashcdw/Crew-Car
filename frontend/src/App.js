@@ -724,7 +724,8 @@ function App() {
             <span className="text-white font-bold text-xl">TK</span>
           </div>
           <h1 className="text-xl font-bold text-gray-900 mb-2">Join Turkish Airlines</h1>
-          <p className="text-gray-600 text-sm">Car Pooling Community</p>
+          <p className="text-gray-600 text-sm mb-1">Car Pooling Community</p>
+          <p className="text-red-600 text-xs font-medium italic">"From home to sky, together"</p>
         </div>
         
         <form onSubmit={register} className="space-y-3">
