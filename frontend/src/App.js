@@ -690,6 +690,135 @@ function App() {
     }
   };
 
+  const cancelTrip = async (tripId) => {
+    if (window.confirm('Are you sure you want to cancel this trip?')) {
+      try {
+        setLoading(true);
+        await apiCall(`/api/trips/${tripId}`, { method: 'DELETE' });
+        alert('Trip cancelled successfully!');
+        fetchUserTrips();
+      } catch (error) {
+        alert('Error cancelling trip: ' + error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Taxi Booking Modal Component
+  const renderBookingModal = () => {
+    if (!showBookingModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
+        <div className="bg-white rounded-t-2xl w-full max-w-md max-h-96 overflow-y-auto">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Book Taxi Ride</h2>
+              <button
+                onClick={() => {
+                  setShowBookingModal(false);
+                  setBookingStep(1);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            {bookingStep === 1 && (
+              <div className="space-y-4">
+                <div className="bg-green-50 rounded-xl p-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-green-600">🏠</span>
+                    <div>
+                      <p className="text-sm font-medium text-green-800">Pickup Location</p>
+                      <p className="text-xs text-green-600 truncate">
+                        {user?.home_address?.address || 'Please set home address'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Where to?</label>
+                  <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY} libraries={['places']}>
+                    <LocationAutocomplete
+                      onPlaceSelect={(location) => setRideBooking({ ...rideBooking, destination: location })}
+                      placeholder="Enter destination"
+                    />
+                  </LoadScript>
+                </div>
+
+                <button
+                  onClick={() => setBookingStep(2)}
+                  disabled={!rideBooking.destination || !user?.home_address}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white py-3 rounded-xl font-medium"
+                >
+                  Continue
+                </button>
+              </div>
+            )}
+
+            {bookingStep === 2 && (
+              <div className="space-y-4">
+                <div className="text-center mb-4">
+                  <p className="text-sm text-gray-600">
+                    {rideBooking.destination?.address.split(',')[0]}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Pickup Time</label>
+                  <input
+                    type="datetime-local"
+                    value={rideBooking.pickup_time}
+                    onChange={(e) => setRideBooking({ ...rideBooking, pickup_time: e.target.value })}
+                    min={new Date().toISOString().slice(0, 16)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+                  <textarea
+                    value={rideBooking.notes}
+                    onChange={(e) => setRideBooking({ ...rideBooking, notes: e.target.value })}
+                    placeholder="Any special requests..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500"
+                    rows="2"
+                  />
+                </div>
+
+                <div className="bg-blue-50 rounded-xl p-3">
+                  <p className="text-xs text-blue-700">
+                    💡 We'll find other riders going your direction (5-7 min away max) and notify you when someone joins your ride!
+                  </p>
+                </div>
+
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setBookingStep(1)}
+                    className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-medium"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={bookTaxiRide}
+                    disabled={loading || !rideBooking.pickup_time}
+                    className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white py-3 rounded-xl font-medium"
+                  >
+                    {loading ? 'Booking...' : 'Book Taxi'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const formatDateTime = (dateString) => {
     return new Date(dateString).toLocaleString('tr-TR', {
       day: '2-digit',
