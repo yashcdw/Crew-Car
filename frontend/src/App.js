@@ -1224,11 +1224,11 @@ function App() {
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-3 pb-20">
           <button
-            onClick={() => setCurrentView('create-trip')}
+            onClick={() => setShowBookingModal(true)}
             className="bg-red-600 text-white p-4 rounded-xl font-medium flex items-center justify-center space-x-2"
           >
-            <span>+</span>
-            <span>Create Trip</span>
+            <span>🚕</span>
+            <span>Book Taxi</span>
           </button>
           <button
             onClick={() => setCurrentView('my-trips')}
@@ -1239,6 +1239,9 @@ function App() {
           </button>
         </div>
       </div>
+
+      {/* Booking Modal */}
+      {renderBookingModal()}
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-50">
