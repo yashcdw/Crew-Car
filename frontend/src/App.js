@@ -177,6 +177,13 @@ function App() {
   // Airport trips state
   const [airportTrips, setAirportTrips] = useState([]);
   const [showAirportTrips, setShowAirportTrips] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [bookingStep, setBookingStep] = useState(1);
+  const [rideBooking, setRideBooking] = useState({
+    destination: null,
+    pickup_time: '',
+    notes: ''
+  });
 
   // Check for token on app load
   useEffect(() => {
