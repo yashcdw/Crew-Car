@@ -270,6 +270,13 @@ class CallRequest(BaseModel):
     to_user_id: str
     trip_id: Optional[str] = None
 
+class TaxiBookingRequest(BaseModel):
+    origin: Location
+    destination: Location
+    pickup_time: datetime
+    notes: Optional[str] = ""
+    max_waiting_time: int = 7  # minutes
+
 class WalletTopupRequest(BaseModel):
     package_id: str
     origin_url: str
