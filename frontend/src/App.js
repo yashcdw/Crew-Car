@@ -889,181 +889,168 @@ function App() {
             </div>
           </button>
         </div>
-        <p className="text-center text-xs text-gray-500 mt-2">
-          {tripType === 'taxi' ? (
-            'Professional taxi sharing - From home to sky, together'
-          ) : (
-            'Share rides with personnel traveling your direction'
-          )}
-        </p>
       </div>
 
-      {/* Quick Stats and Airport Banner */}
-      <div className="px-4 py-4">
-        {/* Airport Trips Banner */}
+      {/* Main Map Area */}
+      <div className="relative h-96 bg-gray-200">
+        <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
+          <TripMap
+            trips={showAirportTrips ? airportTrips : trips}
+            selectedTrip={selectedTrip}
+            onTripSelect={setSelectedTrip}
+            userLocation={userLocation}
+          />
+        </LoadScript>
+        
+        {/* Map Overlay Controls */}
+        <div className="absolute top-4 left-4 right-4 z-10">
+          <div className="flex items-center justify-between">
+            <div className="bg-white rounded-full px-4 py-2 shadow-lg">
+              <span className="text-sm font-medium text-gray-700">
+                {showAirportTrips ? 'Airport Trips' : `${tripType === 'taxi' ? 'Taxi' : 'Car'} Trips`}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setShowAirportTrips(!showAirportTrips);
+                if (!showAirportTrips) fetchAirportTrips();
+              }}
+              className="bg-blue-600 text-white p-2 rounded-full shadow-lg"
+            >
+              <span className="text-sm">✈️</span>
+            </button>
+          </div>
+        </div>
+
+        {/* User Location Indicator */}
+        {userLocation && (
+          <div className="absolute bottom-4 left-4 bg-white rounded-full px-3 py-2 shadow-lg">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="text-xs text-gray-700">Your Location</span>
+            </div>
+          </div>
+        )}
+
+        {/* Home Address Indicator */}
         {user?.home_address && (
+          <div className="absolute bottom-4 right-4 bg-white rounded-full px-3 py-2 shadow-lg">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm">🏠</span>
+              <span className="text-xs text-gray-700">Home</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Trip Summary Cards */}
+      <div className="px-4 py-4">
+        {/* Quick Stats */}
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          <div className="bg-white rounded-xl p-3 text-center shadow-sm">
+            <div className="text-sm font-bold text-gray-900">
+              {showAirportTrips ? airportTrips.length : trips.length}
+            </div>
+            <div className="text-xs text-gray-500">Near You</div>
+          </div>
+          <div className="bg-white rounded-xl p-3 text-center shadow-sm">
+            <div className="text-sm font-bold text-blue-600">{userTrips.created_trips?.length || 0}</div>
+            <div className="text-xs text-gray-500">Created</div>
+          </div>
+          <div className="bg-white rounded-xl p-3 text-center shadow-sm">
+            <div className="text-sm font-bold text-green-600">{userTrips.booked_trips?.length || 0}</div>
+            <div className="text-xs text-gray-500">Booked</div>
+          </div>
+          <div className="bg-white rounded-xl p-3 text-center shadow-sm">
+            <div className="text-sm font-bold text-purple-600">
+              {user?.home_address ? '✓' : '?'}
+            </div>
+            <div className="text-xs text-gray-500">Home Set</div>
+          </div>
+        </div>
+
+        {/* Airport Banner */}
+        {user?.home_address && !showAirportTrips && (
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 mb-4 text-white">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <h3 className="font-bold text-lg">✈️ Airport Trips</h3>
+                <h3 className="font-bold">✈️ Airport Trips Available</h3>
                 <p className="text-blue-100 text-sm">Near your home location</p>
               </div>
               <button
                 onClick={() => {
-                  setShowAirportTrips(!showAirportTrips);
-                  if (!showAirportTrips) fetchAirportTrips();
+                  setShowAirportTrips(true);
+                  fetchAirportTrips();
                 }}
                 className="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg text-sm font-medium"
               >
-                {showAirportTrips ? 'Show All' : 'View Airport'}
+                View
               </button>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-            <div className="text-lg font-bold text-gray-900">
-              {showAirportTrips ? airportTrips.length : trips.length}
+        {/* Selected Trip Info */}
+        {selectedTrip && (
+          <div className="bg-white rounded-xl p-4 mb-4 shadow-sm border-2 border-red-200">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-900">Selected Trip</h3>
+              <button
+                onClick={() => setSelectedTrip(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
             </div>
-            <div className="text-xs text-gray-500">
-              {showAirportTrips ? 'Airport' : 'Available'}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <span className="font-medium">{selectedTrip.origin.address.split(',')[0]}</span>
+                <span className="text-gray-400">→</span>
+                <span className="font-medium">{selectedTrip.destination.address.split(',')[0]}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <span>{formatDateTime(selectedTrip.departure_time)}</span>
+                <span>{selectedTrip.creator_name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-bold text-red-600">{formatCurrency(selectedTrip.price_per_person)}</span>
+                <span className="text-sm text-gray-500">{selectedTrip.available_seats}/{selectedTrip.max_riders} seats</span>
+              </div>
+              {selectedTrip.distance_from_home && (
+                <div className="text-sm text-green-600">
+                  📍 {formatDistance(selectedTrip.distance_from_home)} from your home
+                </div>
+              )}
+              {selectedTrip.available_seats > 0 && !selectedTrip.is_creator && (
+                <button
+                  onClick={() => bookTrip(selectedTrip.id)}
+                  disabled={loading || (selectedTrip.trip_type === 'personal_car' && wallet.balance < selectedTrip.price_per_person)}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white py-3 rounded-xl font-medium mt-3"
+                >
+                  {selectedTrip.trip_type === 'personal_car' ? 'Send Request' : 'Book Trip'}
+                </button>
+              )}
             </div>
           </div>
-          <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-            <div className="text-lg font-bold text-blue-600">{userTrips.created_trips?.length || 0}</div>
-            <div className="text-xs text-gray-500">Created</div>
-          </div>
-          <div className="bg-white rounded-xl p-3 text-center shadow-sm">
-            <div className="text-lg font-bold text-green-600">{userTrips.booked_trips?.length || 0}</div>
-            <div className="text-xs text-gray-500">Booked</div>
-          </div>
-        </div>
+        )}
 
-        {/* Trips Section */}
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold text-gray-900">
-            {showAirportTrips ? '✈️ Airport Trips' : 
-             tripType === 'taxi' ? 'Taxi' : 'Car'} Trips
-          </h2>
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 gap-3 pb-20">
           <button
-            onClick={showAirportTrips ? fetchAirportTrips : fetchTrips}
-            disabled={loading}
-            className="text-red-600 text-sm font-medium"
+            onClick={() => setCurrentView('create-trip')}
+            className="bg-red-600 text-white p-4 rounded-xl font-medium flex items-center justify-center space-x-2"
           >
-            {loading ? 'Loading...' : 'Refresh'}
+            <span>+</span>
+            <span>Create Trip</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('my-trips')}
+            className="bg-gray-600 text-white p-4 rounded-xl font-medium flex items-center justify-center space-x-2"
+          >
+            <span>📋</span>
+            <span>My Trips</span>
           </button>
         </div>
-        
-        {/* Home Address Info */}
-        {showAirportTrips && user?.home_address && (
-          <div className="bg-green-50 rounded-xl p-3 mb-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-green-600">🏠</span>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-green-800">Your Home</p>
-                <p className="text-xs text-green-600 truncate">{user.home_address.address}</p>
-              </div>
-              <span className="text-xs text-green-600 font-medium">Sorted by distance</span>
-            </div>
-          </div>
-        )}
-        
-        {(showAirportTrips ? airportTrips : trips).length === 0 ? (
-          <div className="bg-white rounded-xl p-8 text-center shadow-sm">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">
-                {showAirportTrips ? '✈️' : tripType === 'taxi' ? '🚕' : '🚗'}
-              </span>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {showAirportTrips ? 'No airport trips found' : 'No trips yet'}
-            </h3>
-            <p className="text-gray-500 text-sm mb-4">
-              {showAirportTrips ? 'Airport trips will appear here when available' : 'Be the first to create a trip'}
-            </p>
-            {!showAirportTrips && (
-              <button
-                onClick={() => setCurrentView('create-trip')}
-                className="bg-red-600 text-white px-6 py-3 rounded-xl font-medium"
-              >
-                Create Trip
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3 pb-20">
-            {(showAirportTrips ? airportTrips : trips).map((trip) => (
-              <div
-                key={trip.id}
-                className="bg-white rounded-xl p-4 shadow-sm border border-gray-100"
-                onClick={() => setSelectedTrip(trip)}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-1">
-                      {showAirportTrips && (
-                        <span className="text-blue-500 text-sm">✈️</span>
-                      )}
-                      <h3 className="font-semibold text-gray-900 text-sm truncate">
-                        {trip.origin.address.split(',')[0]}
-                      </h3>
-                      <span className="text-gray-400 text-xs">→</span>
-                      <h3 className="font-semibold text-gray-900 text-sm truncate">
-                        {trip.destination.address.split(',')[0]}
-                      </h3>
-                    </div>
-                    <div className="flex items-center space-x-4 text-xs text-gray-500 mb-2">
-                      <span>{formatDateTime(trip.departure_time)}</span>
-                      <span>{trip.creator_name}</span>
-                      {trip.distance_from_home && (
-                        <span className="text-green-600">
-                          📍 {formatDistance(trip.distance_from_home)} from home
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-red-600">{formatCurrency(trip.price_per_person)}</span>
-                      <span className="text-xs text-gray-500">{trip.available_seats}/{trip.max_riders} seats</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-2">
-                    {trip.trip_type === 'personal_car' ? (
-                      <span className="bg-green-50 text-green-700 px-2 py-1 rounded-full text-xs">
-                        Wallet only
-                      </span>
-                    ) : (
-                      <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-full text-xs">
-                        Cash/Card/Wallet
-                      </span>
-                    )}
-                    {trip.is_creator && (
-                      <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
-                        Your trip
-                      </span>
-                    )}
-                  </div>
-                  
-                  {trip.available_seats > 0 && !trip.is_creator && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        bookTrip(trip.id);
-                      }}
-                      disabled={loading || (trip.trip_type === 'personal_car' && wallet.balance < trip.price_per_person)}
-                      className="bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                    >
-                      {trip.trip_type === 'personal_car' ? 'Request' : 'Book'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Bottom Navigation */}
@@ -1078,7 +1065,7 @@ function App() {
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
             </svg>
-            <span className="text-xs">Trips</span>
+            <span className="text-xs">Home</span>
           </button>
           
           <button
