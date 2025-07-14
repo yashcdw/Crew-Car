@@ -1259,15 +1259,15 @@ function App() {
           </button>
           
           <button
-            onClick={() => setCurrentView('create-trip')}
+            onClick={() => setShowBookingModal(true)}
             className="flex flex-col items-center space-y-1 py-2 px-3 text-gray-400"
           >
             <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
               <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
+                <path fillRule="evenodd" d="M10 2L3 7v11a2 2 0 002 2h4v-6h2v6h4a2 2 0 002-2V7l-7-5z" clipRule="evenodd"/>
               </svg>
             </div>
-            <span className="text-xs">Create</span>
+            <span className="text-xs">Book</span>
           </button>
           
           <button
