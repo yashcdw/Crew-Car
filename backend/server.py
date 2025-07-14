@@ -795,6 +795,71 @@ def calculate_shared_cost(origin: Location, destination: Location, rider_count: 
     # Fallback flat rate
     return 25.0 / rider_count
 
+@app.get("/api/wallet/transactions")
+async def get_wallet_transactions(current_user: dict = Depends(get_current_user)):
+    """Get user's wallet transaction history"""
+    transactions = list(payment_transactions_collection.find({"user_id": current_user["id"]}).sort("created_at", -1))
+    
+    transaction_list = []
+    for transaction in transactions:
+        transaction_list.append({
+            "id": transaction["id"],
+            "transaction_type": transaction["transaction_type"],
+            "amount": transaction["amount"],
+            "currency": transaction["currency"],
+            "description": transaction["description"],
+            "status": transaction["status"],
+            "created_at": transaction["created_at"]
+        })
+    
+    return {"transactions": transaction_list}
+
+@app.get("/api/taxi-booking/status/{booking_id}")
+async def get_booking_status(booking_id: str, current_user: dict = Depends(get_current_user)):
+    """Get status of a taxi booking request"""
+    
+    booking = db.taxi_bookings.find_one({
+        "id": booking_id,
+        "user_id": current_user["id"]
+    })
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    response = {
+        "booking_id": booking_id,
+        "status": booking["status"],
+        "pickup_time": booking["pickup_time"],
+        "riders_count": len(booking.get("matched_riders", [])) + 1
+    }
+    
+    if booking.get("trip_id"):
+        response["trip_id"] = booking["trip_id"]
+    
+    return response
+
+@app.get("/api/taxi-booking/my-bookings")
+async def get_my_taxi_bookings(current_user: dict = Depends(get_current_user)):
+    """Get all taxi bookings for current user"""
+    
+    bookings = list(db.taxi_bookings.find({
+        "user_id": current_user["id"]
+    }).sort("created_at", -1))
+    
+    booking_list = []
+    for booking in bookings:
+        booking_list.append({
+            "id": booking["id"],
+            "origin": booking["origin"],
+            "destination": booking["destination"],
+            "pickup_time": booking["pickup_time"],
+            "status": booking["status"],
+            "riders_count": len(booking.get("matched_riders", [])) + 1,
+            "created_at": booking["created_at"]
+        })
+    
+    return {"bookings": booking_list}
+
 @app.post("/api/wallet/pay")
 async def pay_with_wallet(request: WalletPaymentRequest, current_user: dict = Depends(get_current_user)):
     """Make a payment using wallet balance"""
