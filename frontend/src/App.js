@@ -836,7 +836,7 @@ function App() {
               </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-900">Turkish Airlines</h1>
-                <p className="text-xs text-gray-500">Car Pooling</p>
+                <p className="text-xs text-gray-500">From home to sky, together</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
