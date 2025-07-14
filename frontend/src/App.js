@@ -624,18 +624,69 @@ function App() {
     });
   };
 
-  const cancelTrip = async (tripId) => {
-    if (window.confirm('Are you sure you want to cancel this trip?')) {
-      try {
-        setLoading(true);
-        await apiCall(`/api/trips/${tripId}`, { method: 'DELETE' });
-        alert('Trip cancelled successfully!');
-        fetchUserTrips();
-      } catch (error) {
-        alert('Error cancelling trip: ' + error.message);
-      } finally {
-        setLoading(false);
+  const bookTaxiRide = async () => {
+    if (!user?.home_address) {
+      alert('Please set your home address in profile first');
+      return;
+    }
+    
+    if (!rideBooking.destination || !rideBooking.pickup_time) {
+      alert('Please select destination and pickup time');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const bookingData = {
+        origin: user.home_address,
+        destination: rideBooking.destination,
+        pickup_time: new Date(rideBooking.pickup_time).toISOString(),
+        notes: rideBooking.notes,
+        max_waiting_time: 7 // minutes
+      };
+
+      const response = await apiCall('/api/taxi-booking/request', {
+        method: 'POST',
+        body: JSON.stringify(bookingData)
+      });
+
+      alert('Taxi booking requested! We\'ll find riders going your direction.');
+      setShowBookingModal(false);
+      setBookingStep(1);
+      setRideBooking({ destination: null, pickup_time: '', notes: '' });
+      
+      // Refresh trips to show updated data
+      fetchTrips();
+    } catch (error) {
+      alert('Booking failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestPushNotificationPermission = async () => {
+    if ('Notification' in window && 'serviceWorker' in navigator) {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        console.log('Push notifications enabled');
       }
+    }
+  };
+
+  // Request notification permission on login
+  useEffect(() => {
+    if (user) {
+      requestPushNotificationPermission();
+    }
+  }, [user]);
+
+  const showPushNotification = (title, body) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, {
+        body: body,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico'
+      });
     }
   };
 
