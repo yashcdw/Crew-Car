@@ -586,24 +586,214 @@ async def get_wallet_payment_status(session_id: str, current_user: dict = Depend
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to check payment status: {str(e)}")
 
-@app.get("/api/wallet/transactions")
-async def get_wallet_transactions(current_user: dict = Depends(get_current_user)):
-    """Get user's wallet transaction history"""
-    transactions = list(payment_transactions_collection.find({"user_id": current_user["id"]}).sort("created_at", -1))
+@app.post("/api/taxi-booking/request")
+async def request_taxi_booking(booking_data: TaxiBookingRequest, current_user: dict = Depends(get_current_user)):
+    """Request a taxi booking and find compatible riders"""
     
-    transaction_list = []
-    for transaction in transactions:
-        transaction_list.append({
-            "id": transaction["id"],
-            "transaction_type": transaction["transaction_type"],
-            "amount": transaction["amount"],
-            "currency": transaction["currency"],
-            "description": transaction["description"],
-            "status": transaction["status"],
-            "created_at": transaction["created_at"]
-        })
+    # Create taxi booking request
+    booking_id = str(uuid.uuid4())
+    booking_request = {
+        "id": booking_id,
+        "user_id": current_user["id"],
+        "user_name": current_user["name"],
+        "origin": booking_data.origin.dict(),
+        "destination": booking_data.destination.dict(),
+        "pickup_time": booking_data.pickup_time,
+        "notes": booking_data.notes,
+        "max_waiting_time": booking_data.max_waiting_time,
+        "status": "searching",  # searching, matched, confirmed, completed, cancelled
+        "created_at": datetime.utcnow(),
+        "matched_riders": [],
+        "taxi_info": None
+    }
     
-    return {"transactions": transaction_list}
+    # Store in a taxi_bookings collection
+    db.taxi_bookings.insert_one(booking_request)
+    
+    # Find compatible riders within 5-7 minutes
+    compatible_riders = find_compatible_riders(booking_data, current_user)
+    
+    if compatible_riders:
+        # Create a shared taxi trip
+        trip_id = await create_shared_taxi_trip(booking_data, current_user, compatible_riders)
+        
+        # Update booking status
+        db.taxi_bookings.update_one(
+            {"id": booking_id},
+            {"$set": {"status": "matched", "trip_id": trip_id}}
+        )
+        
+        # Send notifications to all riders
+        for rider in compatible_riders:
+            await manager.send_personal_message(
+                json.dumps({
+                    "type": "taxi_match_found",
+                    "trip_id": trip_id,
+                    "message": f"Taxi sharing match found! {current_user['name']} and others are going your direction.",
+                    "pickup_time": booking_data.pickup_time.isoformat()
+                }),
+                rider["user_id"]
+            )
+        
+        return {
+            "message": "Compatible riders found! Taxi booking created.",
+            "booking_id": booking_id,
+            "trip_id": trip_id,
+            "riders_count": len(compatible_riders) + 1,
+            "estimated_cost": calculate_shared_cost(booking_data.origin, booking_data.destination, len(compatible_riders) + 1)
+        }
+    else:
+        # No compatible riders found
+        return {
+            "message": "Taxi booking requested. We'll notify you when compatible riders are found.",
+            "booking_id": booking_id,
+            "status": "searching",
+            "pickup_time": booking_data.pickup_time.isoformat()
+        }
+
+def find_compatible_riders(booking_data: TaxiBookingRequest, current_user: dict) -> list:
+    """Find riders going in similar direction within time window"""
+    
+    # Time window: +/- 30 minutes from requested pickup time
+    time_start = booking_data.pickup_time - timedelta(minutes=30)
+    time_end = booking_data.pickup_time + timedelta(minutes=30)
+    
+    # Find other taxi booking requests in similar time window
+    potential_matches = list(db.taxi_bookings.find({
+        "user_id": {"$ne": current_user["id"]},
+        "status": "searching",
+        "pickup_time": {"$gte": time_start, "$lte": time_end}
+    }))
+    
+    compatible_riders = []
+    
+    for booking in potential_matches:
+        try:
+            # Calculate distance between pickup locations
+            origin_distance = calculate_distance_between_points(
+                booking_data.origin.coordinates,
+                booking["origin"]["coordinates"]
+            )
+            
+            # Calculate distance between destination locations  
+            dest_distance = calculate_distance_between_points(
+                booking_data.destination.coordinates,
+                booking["destination"]["coordinates"]
+            )
+            
+            # Check if pickup and destination are within 5-7 km (approximately 5-7 min drive)
+            if origin_distance <= 7 and dest_distance <= 7:
+                # Calculate time difference
+                time_diff = abs((booking_data.pickup_time - booking["pickup_time"]).total_seconds() / 60)
+                
+                if time_diff <= booking_data.max_waiting_time:
+                    compatible_riders.append(booking)
+                    
+        except Exception as e:
+            print(f"Error calculating compatibility: {e}")
+            continue
+    
+    return compatible_riders
+
+def calculate_distance_between_points(coord1: dict, coord2: dict) -> float:
+    """Calculate distance between two coordinates in km using haversine formula"""
+    import math
+    
+    lat1, lon1 = coord1["lat"], coord1["lng"]
+    lat2, lon2 = coord2["lat"], coord2["lng"]
+    
+    # Haversine formula
+    R = 6371  # Earth's radius in km
+    
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
+    return R * c
+
+async def create_shared_taxi_trip(booking_data: TaxiBookingRequest, primary_user: dict, riders: list) -> str:
+    """Create a shared taxi trip for compatible riders"""
+    
+    trip_id = str(uuid.uuid4())
+    
+    # Calculate average pickup time
+    all_times = [booking_data.pickup_time] + [r["pickup_time"] for r in riders]
+    avg_pickup_time = min(all_times)  # Use earliest time
+    
+    # Create trip
+    trip = {
+        "id": trip_id,
+        "trip_type": "shared_taxi",
+        "creator_id": primary_user["id"],
+        "creator_name": primary_user["name"],
+        "origin": booking_data.origin.dict(),
+        "destination": booking_data.destination.dict(),
+        "departure_time": avg_pickup_time,
+        "max_riders": 3,
+        "available_seats": max(0, 3 - len(riders)),
+        "price_per_person": calculate_shared_cost(booking_data.origin, booking_data.destination, len(riders) + 1),
+        "notes": f"Shared taxi ride. {booking_data.notes}",
+        "status": "confirmed",
+        "created_at": datetime.utcnow(),
+        "riders": [
+            {
+                "user_id": primary_user["id"],
+                "user_name": primary_user["name"],
+                "pickup_location": booking_data.origin.dict(),
+                "status": "confirmed"
+            }
+        ] + [
+            {
+                "user_id": r["user_id"],
+                "user_name": r["user_name"],
+                "pickup_location": r["origin"],
+                "status": "confirmed"
+            } for r in riders
+        ]
+    }
+    
+    trips_collection.insert_one(trip)
+    
+    # Update all rider bookings to matched status
+    rider_ids = [r["id"] for r in riders]
+    db.taxi_bookings.update_many(
+        {"id": {"$in": rider_ids}},
+        {"$set": {"status": "matched", "trip_id": trip_id}}
+    )
+    
+    return trip_id
+
+def calculate_shared_cost(origin: Location, destination: Location, rider_count: int) -> float:
+    """Calculate cost per person for shared taxi"""
+    
+    try:
+        # Use Google Maps to get distance
+        directions_result = gmaps.directions(
+            origin.coordinates,
+            destination.coordinates,
+            mode="driving"
+        )
+        
+        if directions_result:
+            distance_km = directions_result[0]['legs'][0]['distance']['value'] / 1000
+            
+            # Base taxi fare calculation (Istanbul rates)
+            base_fare = 5.0  # Base fare
+            per_km_rate = 3.5  # Per km rate
+            total_cost = base_fare + (distance_km * per_km_rate)
+            
+            # Split among riders
+            cost_per_person = total_cost / rider_count
+            
+            return round(cost_per_person, 2)
+        
+    except Exception as e:
+        print(f"Error calculating cost: {e}")
+    
+    # Fallback flat rate
+    return 25.0 / rider_count
 
 @app.post("/api/wallet/pay")
 async def pay_with_wallet(request: WalletPaymentRequest, current_user: dict = Depends(get_current_user)):
